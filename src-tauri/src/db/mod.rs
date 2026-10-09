@@ -12,7 +12,9 @@ use crate::emulators::profiles::EmulatorProfile;
 use crate::emulators::rom_scanner::RomCandidate;
 use crate::error::{AppError, AppResult};
 use crate::scanner::{ConfidenceLevel, ScanCandidate, ScanSource};
-use schema::{ArtworkAsset, Game, GameOverrides, GameStatus, LaunchAction, SourceKind};
+use schema::{
+    ArtworkAsset, Game, GameOverrides, GameSession, GameStatus, LaunchAction, SourceKind,
+};
 
 #[derive(Clone)]
 pub struct Database {
@@ -222,13 +224,13 @@ impl Database {
                 genres, tags, source_kind, source_id, install_dir, launch_action,
                 status, last_scanned_at, is_favorite, is_hidden, notes, user_tags,
                 match_confidence, provider_attribution, created_at, updated_at,
-                last_launched_at, normalized_path
+                last_launched_at, normalized_path, playtime_seconds
             ) VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7,
                 ?8, ?9, ?10, ?11, ?12, ?13,
                 ?14, ?15, ?16, ?17, ?18, ?19,
                 ?20, ?21, ?22, ?23,
-                ?24, ?25
+                ?24, ?25, ?26
             )",
             params![
                 game.id,
@@ -260,6 +262,7 @@ impl Database {
                 now,
                 game.last_launched_at,
                 game.normalized_path,
+                game.playtime_seconds as i64,
             ],
         )?;
 
@@ -293,7 +296,8 @@ impl Database {
                 g.provider_attribution,
                 g.last_launched_at,
                 g.normalized_path,
-                g.created_at
+                g.created_at,
+                g.playtime_seconds
             FROM games g
             LEFT JOIN game_overrides go ON go.game_id = g.id
             WHERE g.id = ?1";
@@ -348,7 +352,8 @@ impl Database {
                 g.provider_attribution,
                 g.last_launched_at,
                 g.normalized_path,
-                g.created_at
+                g.created_at,
+                g.playtime_seconds
             FROM games g
             LEFT JOIN game_overrides go ON go.game_id = g.id
             WHERE g.normalized_path = ?1";
@@ -539,7 +544,8 @@ impl Database {
                 g.provider_attribution,
                 g.last_launched_at,
                 g.normalized_path,
-                g.created_at
+                g.created_at,
+                g.playtime_seconds
             FROM games g
             LEFT JOIN game_overrides go ON go.game_id = g.id
             WHERE g.source_kind = ?1 AND g.source_id = ?2";
@@ -927,7 +933,8 @@ impl Database {
                 g.provider_attribution,
                 g.last_launched_at,
                 g.normalized_path,
-                g.created_at
+                g.created_at,
+                g.playtime_seconds
             FROM games g
             LEFT JOIN game_overrides go ON go.game_id = g.id
             WHERE 1=1",
@@ -967,6 +974,17 @@ impl Database {
             }
             Some("recently_played") => {
                 sql.push_str(" ORDER BY g.last_launched_at DESC NULLS LAST, g.created_at DESC");
+            }
+            Some("most_played") => {
+                let playtime_order = if sort_order == Some("asc") {
+                    "ASC"
+                } else {
+                    "DESC"
+                };
+                sql.push_str(&format!(
+                    " ORDER BY g.playtime_seconds {}, g.created_at DESC",
+                    playtime_order
+                ));
             }
             Some("release_year") => {
                 sql.push_str(&format!(
@@ -1083,6 +1101,7 @@ impl Database {
             last_launched_at: row.get(21)?,
             normalized_path: row.get(22)?,
             created_at: row.get(23)?,
+            playtime_seconds: row.get::<_, i64>(24).unwrap_or(0).max(0) as u64,
             artwork: None,
         })
     }
@@ -1643,6 +1662,103 @@ impl Database {
     pub fn path(&self) -> &Path {
         &self.path
     }
+
+    /// Record a game session and update total playtime on the game.
+    pub fn record_game_session(
+        &self,
+        game_id: &str,
+        started_at: &str,
+        ended_at: Option<&str>,
+        duration_seconds: u64,
+        is_approximate: bool,
+    ) -> AppResult<GameSession> {
+        let conn = self.conn.lock().unwrap();
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let now = Utc::now().to_rfc3339();
+
+        conn.execute(
+            "INSERT INTO game_sessions (id, game_id, started_at, ended_at, duration_seconds, is_approximate)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                session_id,
+                game_id,
+                started_at,
+                ended_at,
+                duration_seconds as i64,
+                if is_approximate { 1 } else { 0 },
+            ],
+        )?;
+
+        conn.execute(
+            "UPDATE games
+             SET playtime_seconds = playtime_seconds + ?1,
+                 last_launched_at = COALESCE(?2, last_launched_at),
+                 updated_at = ?3
+             WHERE id = ?4",
+            params![duration_seconds as i64, started_at, now, game_id,],
+        )?;
+
+        Ok(GameSession {
+            id: session_id,
+            game_id: game_id.to_string(),
+            started_at: started_at.to_string(),
+            ended_at: ended_at.map(|s| s.to_string()),
+            duration_seconds,
+            is_approximate,
+        })
+    }
+
+    /// Retrieve all recorded sessions for a specific game, sorted most recent first.
+    pub fn get_game_sessions(&self, game_id: &str) -> AppResult<Vec<GameSession>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, game_id, started_at, ended_at, duration_seconds, is_approximate
+             FROM game_sessions
+             WHERE game_id = ?1
+             ORDER BY started_at DESC",
+        )?;
+
+        let rows = stmt.query_map(params![game_id], |row| {
+            let id: String = row.get(0)?;
+            let gid: String = row.get(1)?;
+            let started_at: String = row.get(2)?;
+            let ended_at: Option<String> = row.get(3)?;
+            let duration_seconds: i64 = row.get(4)?;
+            let is_approximate: i32 = row.get(5)?;
+
+            Ok(GameSession {
+                id,
+                game_id: gid,
+                started_at,
+                ended_at,
+                duration_seconds: duration_seconds.max(0) as u64,
+                is_approximate: is_approximate == 1,
+            })
+        })?;
+
+        let mut sessions = Vec::new();
+        for s in rows {
+            sessions.push(s?);
+        }
+        Ok(sessions)
+    }
+
+    /// Reset playtime for a specific game to 0 and remove its recorded sessions.
+    pub fn reset_game_playtime(&self, game_id: &str) -> AppResult<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = Utc::now().to_rfc3339();
+
+        conn.execute(
+            "DELETE FROM game_sessions WHERE game_id = ?1",
+            params![game_id],
+        )?;
+        conn.execute(
+            "UPDATE games SET playtime_seconds = 0, updated_at = ?1 WHERE id = ?2",
+            params![now, game_id],
+        )?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -1682,6 +1798,7 @@ mod tests {
             last_launched_at: None,
             normalized_path: Some(path.to_lowercase()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
+            playtime_seconds: 0,
             artwork: None,
         }
     }
@@ -1821,6 +1938,7 @@ mod tests {
             last_launched_at: None,
             normalized_path: Some("c:/steam/steamapps/common/terraria".to_string()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
+            playtime_seconds: 0,
             artwork: None,
         };
 
@@ -1896,6 +2014,7 @@ mod tests {
             last_launched_at: None,
             normalized_path: Some("e:/external/steamapps/common/war thunder".to_string()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
+            playtime_seconds: 0,
             artwork: None,
         };
 
@@ -1952,5 +2071,89 @@ mod tests {
         assert_eq!(installed, 0);
         assert_eq!(missing, 0);
         assert_eq!(favorites, 0);
+    }
+
+    #[test]
+    fn test_playtime_recording_and_reset() {
+        let db = Database::in_memory().unwrap();
+        let game = make_test_game("pt-game-1", "Celeste", "c:/games/celeste.exe");
+        db.add_game(&game).unwrap();
+
+        // Initially 0 playtime
+        let initial = db.get_game_by_id("pt-game-1").unwrap().unwrap();
+        assert_eq!(initial.playtime_seconds, 0);
+
+        // Record a 30-minute session (1800 seconds)
+        let session1 = db
+            .record_game_session(
+                "pt-game-1",
+                "2026-10-10T10:00:00Z",
+                Some("2026-10-10T10:30:00Z"),
+                1800,
+                false,
+            )
+            .unwrap();
+        assert_eq!(session1.duration_seconds, 1800);
+        assert!(!session1.is_approximate);
+
+        // Check updated game
+        let after_s1 = db.get_game_by_id("pt-game-1").unwrap().unwrap();
+        assert_eq!(after_s1.playtime_seconds, 1800);
+        assert_eq!(
+            after_s1.last_launched_at,
+            Some("2026-10-10T10:00:00Z".to_string())
+        );
+
+        // Record a second approximate session (600 seconds)
+        let session2 = db
+            .record_game_session(
+                "pt-game-1",
+                "2026-10-10T12:00:00Z",
+                Some("2026-10-10T12:10:00Z"),
+                600,
+                true,
+            )
+            .unwrap();
+        assert!(session2.is_approximate);
+
+        let after_s2 = db.get_game_by_id("pt-game-1").unwrap().unwrap();
+        assert_eq!(after_s2.playtime_seconds, 2400);
+
+        // Check sessions retrieval
+        let sessions = db.get_game_sessions("pt-game-1").unwrap();
+        assert_eq!(sessions.len(), 2);
+        assert_eq!(sessions[0].started_at, "2026-10-10T12:00:00Z");
+        assert_eq!(sessions[1].started_at, "2026-10-10T10:00:00Z");
+
+        // Reset playtime
+        db.reset_game_playtime("pt-game-1").unwrap();
+        let after_reset = db.get_game_by_id("pt-game-1").unwrap().unwrap();
+        assert_eq!(after_reset.playtime_seconds, 0);
+
+        let sessions_after_reset = db.get_game_sessions("pt-game-1").unwrap();
+        assert_eq!(sessions_after_reset.len(), 0);
+    }
+
+    #[test]
+    fn test_list_games_most_played_sort() {
+        let db = Database::in_memory().unwrap();
+        let mut g1 = make_test_game("g1", "Game Low Playtime", "c:/g1.exe");
+        g1.playtime_seconds = 100;
+        let mut g2 = make_test_game("g2", "Game High Playtime", "c:/g2.exe");
+        g2.playtime_seconds = 5000;
+        let mut g3 = make_test_game("g3", "Game Zero Playtime", "c:/g3.exe");
+        g3.playtime_seconds = 0;
+
+        db.add_game(&g1).unwrap();
+        db.add_game(&g2).unwrap();
+        db.add_game(&g3).unwrap();
+
+        // Sort by most_played (default descending)
+        let games_desc = db
+            .list_games(None, None, Some("most_played"), None, false)
+            .unwrap();
+        assert_eq!(games_desc[0].id, "g2");
+        assert_eq!(games_desc[1].id, "g1");
+        assert_eq!(games_desc[2].id, "g3");
     }
 }

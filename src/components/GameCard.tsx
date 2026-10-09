@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Game } from '../types/models';
 import { getDeterministicGradient, getTitleInitials, resolveArtworkSrc } from '../utils/artwork';
-import { Heart, Flame, Monitor, Cpu } from 'lucide-react';
+import { Heart, Flame, Monitor, Cpu, Clock } from 'lucide-react';
+import { formatPlaytime } from '../utils/playtime';
 
 interface GameCardProps {
   game: Game;
   isSelected: boolean;
   onSelect: (game: Game) => void;
   viewMode: 'grid' | 'list';
+  playtimeTrackingEnabled?: boolean;
 }
 
 export const GameCard: React.FC<GameCardProps> = ({
@@ -15,6 +17,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   isSelected,
   onSelect,
   viewMode,
+  playtimeTrackingEnabled,
 }) => {
   const [imgError, setImgError] = useState(false);
   const coverAsset = game.artwork?.cover;
@@ -81,6 +84,13 @@ export const GameCard: React.FC<GameCardProps> = ({
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0">
+          {playtimeTrackingEnabled && (game.playtime_seconds ?? 0) > 0 && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-surface-2 border border-border text-[11px] text-muted font-mono" title={`Playtime: ${formatPlaytime(game.playtime_seconds!)}`}>
+              <Clock className="w-3 h-3 text-muted" />
+              <span>{formatPlaytime(game.playtime_seconds!)}</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-2 border border-border text-[11px] text-muted">
             {getSourceIcon()}
             <span>{game.source_kind}</span>
@@ -158,8 +168,14 @@ export const GameCard: React.FC<GameCardProps> = ({
           {game.title}
         </h4>
         <div className="flex items-center justify-between text-[11px] text-muted mt-1">
-          <span className="truncate max-w-[120px]">{game.developer || '—'}</span>
-          <span>{game.release_year || ''}</span>
+          <span className="truncate max-w-[110px]">{game.developer || '—'}</span>
+          {playtimeTrackingEnabled && (game.playtime_seconds ?? 0) > 0 ? (
+            <span className="font-mono text-text/80 text-[10px] bg-surface-2 px-1.5 py-0.5 rounded border border-border" title={`Playtime: ${formatPlaytime(game.playtime_seconds!)}`}>
+              {formatPlaytime(game.playtime_seconds!)}
+            </span>
+          ) : (
+            <span>{game.release_year || ''}</span>
+          )}
         </div>
       </div>
     </div>

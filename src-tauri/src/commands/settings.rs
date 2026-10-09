@@ -18,6 +18,7 @@ pub struct AppSettings {
     pub accent_color: String,
     pub reduced_motion: String,
     pub card_density: String,
+    pub playtime_tracking_enabled: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -81,6 +82,12 @@ pub async fn get_settings(state: State<'_, AppState>) -> AppResult<AppSettings> 
         .get_setting("card_density")?
         .unwrap_or_else(|| "comfortable".to_string());
 
+    let playtime_tracking_enabled = state
+        .db
+        .get_setting("playtime_tracking_enabled")?
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+
     Ok(AppSettings {
         theme,
         default_view_mode,
@@ -93,6 +100,7 @@ pub async fn get_settings(state: State<'_, AppState>) -> AppResult<AppSettings> 
         accent_color,
         reduced_motion,
         card_density,
+        playtime_tracking_enabled,
     })
 }
 

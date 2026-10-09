@@ -340,5 +340,18 @@ Verified in `src-tauri/tests/test_performance_1000_games.rs` and `src/services/b
   - Windowed chunking in `App.tsx`: slices rendering to 60 initial cards with incremental loading as the user scrolls, preventing heavy DOM layout overhead and guaranteeing 60fps frame rates.
   - Zero full-size image bytes crossing the IPC bridge.
 
-
-
+### 11. Local Playtime Tracking Architecture (Phase 8)
+Implemented across `src-tauri/migrations/006_phase8_playtime_tracking.sql`, `src-tauri/src/db/mod.rs`, `src-tauri/src/commands/games.rs`, and `src/components/GameDetailPanel.tsx`:
+- **Strictly Local-Only & Opt-In**:
+  - Setting `playtime_tracking_enabled: false` by default in SQLite `settings` table.
+  - Zero external telemetry or network calls.
+- **Data Model**:
+  - `game_sessions`: logs `id`, `game_id`, `started_at`, `ended_at`, `duration_seconds`, and `is_approximate`.
+  - `games.playtime_seconds`: denormalized total playtime integer, indexed for high-performance sorting.
+- **Process Strategy**:
+  - **Standalone Executables & Emulators**: `validate_and_spawn_with_db` returns the spawned `std::process::Child`. When playtime tracking is enabled, a detached background thread awaits `child.wait()`. Upon termination, it records the exact session duration, updates `playtime_seconds`, and emits the `game-playtime-updated` event to the frontend.
+  - **Steam & Protocol Launchers**: Steam games launch via protocol URI (`steam://rungameid/<id>`) without a long-running child process. The frontend UI provides interactive active session tracking when launched, explicitly labeled as `(Approximate)`, allowing users to monitor session elapsed time and record or end the session.
+- **Conditional UI Integration**:
+  - "Most Played" sort option in `TopBar.tsx` and playtime badges in `GameCard.tsx` appear only when `playtime_tracking_enabled` is active.
+  - If the user turns off playtime tracking in Settings, the sort field automatically falls back to title sort.
+  - `reset_game_playtime` clears session records and zeroes total duration with user confirmation in `GameDetailPanel.tsx`.

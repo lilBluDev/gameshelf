@@ -11,7 +11,7 @@ import { ScanFolderModal } from './components/ScanFolderModal';
 import { ScanRomsModal } from './components/ScanRomsModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { OnboardingModal } from './components/OnboardingModal';
-import { api } from './services/api';
+import { api, isTauri } from './services/api';
 import { AppInfo, AppSettings, CommandError, SortField, ViewMode } from './types/api';
 import { Game } from './types/models';
 
@@ -29,6 +29,7 @@ export const App: React.FC = () => {
     accent_color: '#7C6CFF',
     reduced_motion: 'system',
     card_density: 'comfortable',
+    playtime_tracking_enabled: false,
   });
 
   const [games, setGames] = useState<Game[]>([]);
@@ -110,6 +111,44 @@ export const App: React.FC = () => {
     initApp();
   }, []);
 
+  // Listen for background playtime updates (child processes exiting)
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    const setupListener = async () => {
+      if (isTauri()) {
+        try {
+          const { listen } = await import('@tauri-apps/api/event');
+          unlisten = await listen<{ game_id: string; additional_seconds: number; total_playtime_seconds: number }>(
+            'game-playtime-updated',
+            (event) => {
+              const { game_id, total_playtime_seconds } = event.payload;
+              setGames((prev) =>
+                prev.map((g) => (g.id === game_id ? { ...g, playtime_seconds: total_playtime_seconds } : g))
+              );
+              setSelectedGame((prev) =>
+                prev && prev.id === game_id ? { ...prev, playtime_seconds: total_playtime_seconds } : prev
+              );
+            }
+          );
+        } catch (e) {
+          console.warn('Failed to register game-playtime-updated listener', e);
+        }
+      }
+    };
+    setupListener();
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
+  // Reset sortBy to 'title' if playtime tracking gets disabled while 'most_played' was selected
+  useEffect(() => {
+    const trackingEnabled = settings.playtime_tracking_enabled === true || String(settings.playtime_tracking_enabled) === 'true';
+    if (!trackingEnabled && sortBy === 'most_played') {
+      setSortBy('title');
+    }
+  }, [settings.playtime_tracking_enabled, sortBy]);
+
   // Sync theme changes with DOM documentElement
   useEffect(() => {
     const root = document.documentElement;
@@ -153,12 +192,26 @@ export const App: React.FC = () => {
   const handleUpdateSetting = async (key: string, value: string) => {
     try {
       await api.setSetting(key, value);
+      const parsedValue =
+        key === 'playtime_tracking_enabled'
+          ? value === 'true'
+          : key === 'close_to_tray' ||
+            key === 'minimize_to_tray' ||
+            key === 'launch_on_startup' ||
+            key === 'onboarding_completed' ||
+            key === 'steam_grid_db_configured'
+          ? value === 'true'
+          : value;
+
       setSettings((prev) => ({
         ...prev,
-        [key]: value,
+        [key]: parsedValue,
       }));
       if (key === 'default_view_mode') {
         setViewMode(value as ViewMode);
+      }
+      if (key === 'playtime_tracking_enabled' && value !== 'true' && sortBy === 'most_played') {
+        setSortBy('title');
       }
       addToast('success', 'Setting Updated', `Changed ${key} to ${value}`);
     } catch (err: unknown) {
@@ -228,6 +281,10 @@ export const App: React.FC = () => {
         if (lA && !lB) return -1;
         if (!lA && lB) return 1;
         return lB.localeCompare(lA);
+      } else if (sortBy === 'most_played') {
+        const pA = a.playtime_seconds || 0;
+        const pB = b.playtime_seconds || 0;
+        return pB - pA;
       } else if (sortBy === 'release_year') {
         const yA = a.release_year || 0;
         const yB = b.release_year || 0;
@@ -328,6 +385,7 @@ export const App: React.FC = () => {
             sortBy={sortBy}
             onSortByChange={setSortBy}
             totalGames={visibleGames.length}
+            playtimeTrackingEnabled={Boolean(settings.playtime_tracking_enabled)}
             onOpenAddGame={() => setIsAddGameOpen(true)}
             onOpenScanFolder={() => handleOpenScanFolder()}
             onOpenScanRoms={() => handleOpenScanRoms()}
@@ -359,6 +417,7 @@ export const App: React.FC = () => {
                     isSelected={selectedGame?.id === game.id}
                     onSelect={setSelectedGame}
                     viewMode="grid"
+                    playtimeTrackingEnabled={Boolean(settings.playtime_tracking_enabled)}
                   />
                 ))}
                 {renderLimit < visibleGames.length && (
@@ -376,6 +435,7 @@ export const App: React.FC = () => {
                     isSelected={selectedGame?.id === game.id}
                     onSelect={setSelectedGame}
                     viewMode="list"
+                    playtimeTrackingEnabled={Boolean(settings.playtime_tracking_enabled)}
                   />
                 ))}
                 {renderLimit < visibleGames.length && (
@@ -397,6 +457,7 @@ export const App: React.FC = () => {
             onGameRemoved={handleGameRemoved}
             onError={(t, m) => addToast('error', t, m)}
             onSuccess={(t, m) => addToast('success', t, m)}
+            playtimeTrackingEnabled={Boolean(settings.playtime_tracking_enabled)}
           />
         )}
       </div>

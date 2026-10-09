@@ -705,6 +705,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="w-4 h-4 rounded border-border bg-surface text-accent focus:ring-accent focus:ring-offset-0 cursor-pointer accent-accent"
                     />
                   </div>
+
+                  {/* Local Playtime Tracking */}
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="space-y-0.5 max-w-[80%]">
+                      <div className="text-xs font-medium text-text flex items-center gap-1.5">
+                        <span>Local Playtime Tracking</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-accent/15 text-accent border border-accent/30 font-normal">
+                          Local only
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-muted">
+                        Record how long games run on this machine. Standalone and emulator sessions are exact; Steam launches are labeled approximate.
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.playtime_tracking_enabled === true || String(settings.playtime_tracking_enabled) === 'true'}
+                      onChange={(e) => onUpdateSetting('playtime_tracking_enabled', e.target.checked ? 'true' : 'false')}
+                      aria-label="Toggle local playtime tracking"
+                      className="w-4 h-4 rounded border-border bg-surface text-accent focus:ring-accent focus:ring-offset-0 cursor-pointer accent-accent"
+                    />
+                  </div>
                 </div>
               </div>
             )}

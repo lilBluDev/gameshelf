@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use tracing::info;
 use uuid::Uuid;
 
-use crate::db::schema::{Game, GameOverrides, GameStatus, LaunchAction, SourceKind};
+use crate::db::schema::{Game, GameOverrides, GameSession, GameStatus, LaunchAction, SourceKind};
 use crate::error::{AppError, AppResult};
-use crate::launcher::{validate_and_launch_with_db, LaunchResult};
+use crate::launcher::{validate_and_spawn_with_db, LaunchResult};
 use crate::platform::windows::{inspect_game_file, normalize_path, InferredGameMetadata};
 use crate::AppState;
 
@@ -191,6 +191,7 @@ pub async fn add_manual_game(
         last_launched_at: None,
         normalized_path: Some(normalized),
         created_at: chrono::Utc::now().to_rfc3339(),
+        playtime_seconds: 0,
         artwork: None,
     };
 
@@ -287,16 +288,56 @@ pub async fn remove_game(state: State<'_, AppState>, id: String) -> AppResult<bo
 }
 
 #[tauri::command]
-pub async fn launch_game(state: State<'_, AppState>, id: String) -> AppResult<LaunchResult> {
+pub async fn launch_game(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+    id: String,
+) -> AppResult<LaunchResult> {
     let game = state
         .db
         .get_game_by_id(&id)?
         .ok_or_else(|| AppError::Internal(format!("Game not found: {}", id)))?;
 
-    match validate_and_launch_with_db(&game.launch_action, Some(&state.db)) {
-        Ok(res) => {
+    match validate_and_spawn_with_db(&game.launch_action, Some(&state.db)) {
+        Ok((res, maybe_child)) => {
             let _ = state.db.update_last_launched(&id);
             let _ = state.db.update_game_status(&id, GameStatus::Installed);
+
+            // Optional playtime tracking check
+            let tracking_enabled = state
+                .db
+                .get_setting("playtime_tracking_enabled")?
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(false);
+
+            if tracking_enabled {
+                if let Some(mut child) = maybe_child {
+                    // Spawn background thread to wait on child process exit
+                    let db_clone = state.db.clone();
+                    let app_clone = app_handle.clone();
+                    let game_id = id.clone();
+                    let started_at = chrono::Utc::now().to_rfc3339();
+                    let start_instant = std::time::Instant::now();
+
+                    std::thread::spawn(move || {
+                        let _ = child.wait();
+                        let elapsed = start_instant.elapsed().as_secs();
+                        let ended_at = chrono::Utc::now().to_rfc3339();
+                        if elapsed > 0 {
+                            if let Ok(session) = db_clone.record_game_session(
+                                &game_id,
+                                &started_at,
+                                Some(&ended_at),
+                                elapsed,
+                                false,
+                            ) {
+                                let _ = app_clone.emit("game-playtime-updated", &session);
+                            }
+                        }
+                    });
+                }
+            }
+
             Ok(res)
         }
         Err(err) => {
@@ -308,6 +349,44 @@ pub async fn launch_game(state: State<'_, AppState>, id: String) -> AppResult<La
             Err(err)
         }
     }
+}
+
+#[tauri::command]
+pub async fn record_game_session(
+    state: State<'_, AppState>,
+    game_id: String,
+    started_at: String,
+    ended_at: Option<String>,
+    duration_seconds: u64,
+    is_approximate: bool,
+) -> AppResult<GameSession> {
+    info!(
+        game_id = %game_id,
+        duration = %duration_seconds,
+        approximate = %is_approximate,
+        "Recording game session"
+    );
+    state.db.record_game_session(
+        &game_id,
+        &started_at,
+        ended_at.as_deref(),
+        duration_seconds,
+        is_approximate,
+    )
+}
+
+#[tauri::command]
+pub async fn get_game_sessions(
+    state: State<'_, AppState>,
+    game_id: String,
+) -> AppResult<Vec<GameSession>> {
+    state.db.get_game_sessions(&game_id)
+}
+
+#[tauri::command]
+pub async fn reset_game_playtime(state: State<'_, AppState>, game_id: String) -> AppResult<()> {
+    info!(game_id = %game_id, "Resetting game playtime and session records");
+    state.db.reset_game_playtime(&game_id)
 }
 
 #[tauri::command]

@@ -37,9 +37,14 @@ pub const MIGRATIONS: &[Migration] = &[
         description: "Add locked_fields to game_overrides and artwork indexes",
         sql: include_str!("../../migrations/005_phase6_metadata_artwork.sql"),
     },
+    Migration {
+        version: 6,
+        description: "Add playtime_seconds to games, game_sessions table, and playtime_tracking_enabled setting",
+        sql: include_str!("../../migrations/006_phase8_playtime_tracking.sql"),
+    },
 ];
 
-pub const LATEST_VERSION: u32 = 5;
+pub const LATEST_VERSION: u32 = 6;
 
 /// Get the highest applied migration version. Returns 0 if no migrations have been applied.
 pub fn get_current_version(conn: &Connection) -> AppResult<u32> {

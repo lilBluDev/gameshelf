@@ -278,6 +278,7 @@ fn test_db_artwork_selection_and_locked_fields_preservation() {
         last_launched_at: None,
         normalized_path: None,
         created_at: "2026-01-01T00:00:00Z".to_string(),
+        playtime_seconds: 0,
         artwork: None,
     };
     db.add_game(&game).unwrap();

@@ -18,6 +18,7 @@
 - [x] Phase 5 — Emulator Profiles and Emulated Games (2026-10-09)
 - [x] Phase 6 — Metadata & artwork pipeline (2026-10-10)
 - [x] Phase 7 — Polish, hardening & packaging (2026-10-10)
+- [x] Phase 8 — Local Playtime Tracking (2026-10-10)
 
 ---
 
@@ -25,6 +26,9 @@
 
 | Feature | Status | Evidence / notes |
 |---|---|---|
+| Local Playtime Tracking & Session Recording | Implemented | `game_sessions` table (Migration 6), exact `child.wait()` tracking in background thread for standalone/emulators, approximate session tracking for Steam protocol activation; disabled by default |
+| Most Played Sort & Conditional Playtime Badges | Implemented | `TopBar.tsx` and `GameCard.tsx` conditionally render "Most Played" sort and playtime badges only when `playtime_tracking_enabled` is active; auto-resets sort if toggled off |
+| Per-Game Playtime Reset | Implemented | `reset_game_playtime` Tauri command and confirmation dialog in `GameDetailPanel.tsx` safely zeroes playtime and clears session history |
 | First-Launch Onboarding Wizard | Implemented | `src/components/OnboardingModal.tsx` 4-step wizard (Steam detection, folder/ROMs, SGDB key, ready); skippable, persisted via `onboarding_completed` in SQLite |
 | Windows Registry Startup Integration | Implemented | `src-tauri/src/platform/windows.rs` manages HKCU Run key (`Software\Microsoft\Windows\CurrentVersion\Run\GameShelf`) with zero admin rights required |
 | Database Corruption Auto-Recovery & Backup | Implemented | `src-tauri/src/db/mod.rs` tests `PRAGMA quick_check;` on startup; catches corruption, backs up as `.corrupt.<ts>.db`, cleanly reinitializes without data deletion |
@@ -32,8 +36,8 @@
 | Settings Completeness & Appearance Customization | Implemented | `SettingsModal.tsx` supports launch on startup, minimize to tray, close to tray, 6 accent colors, reduced motion mode, and card density |
 | Debounced Search & Windowed Rendering | Implemented | `TopBar.tsx` debounces 150ms; `App.tsx` incrementally renders 60 cards initially with scroll threshold batching, guaranteeing 60fps interaction |
 | 1,000 Games Performance Benchmarks | Implemented | Verified in `test_performance_1000_games.rs` (insert: 586ms, retrieve: 31ms, search: 5ms) and `benchmark.test.ts` (search: 1.42ms, slice: 0.001ms) |
-| Complete Quality Gate Suite | Implemented | 72/72 Rust tests (`cargo test`), 44/44 frontend tests (`pnpm test`), `cargo clippy -- -D warnings`, `cargo fmt --check` all passing |
-| Windows Desktop Production Packaging | Implemented | `pnpm tauri build` generates MSI (`GameShelf_0.1.0_x64_en-US.msi`, 6.42 MiB) and NSIS setup (`GameShelf_0.1.0_x64-setup.exe`, 4.54 MiB) |
+| Complete Quality Gate Suite | Implemented | 74/74 Rust tests (`cargo test`), 49/49 frontend tests (`pnpm test`), `cargo clippy -- -D warnings`, `cargo fmt --check` all passing |
+| Windows Desktop Production Packaging | Implemented | `pnpm tauri build` generates MSI (`GameShelf_0.1.0_x64_en-US.msi`, 6.45 MiB) and NSIS setup (`GameShelf_0.1.0_x64-setup.exe`, 4.55 MiB) |
 | Single-source App Branding Config | Implemented | `src/config/appConfig.ts` houses app name, bundle ID, accent color, and logo path |
 | Design Tokens & Theme System | Implemented | `tailwind.config.js` and `src/index.css` define dark, light, system theme tokens and respect `prefers-reduced-motion` |
 | Native Window Title Bar | Implemented | `src/components/TitleBar.tsx` with non-blocking drag region, window minimize/maximize/close via Tauri API + web fallback |

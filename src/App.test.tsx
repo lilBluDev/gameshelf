@@ -49,6 +49,7 @@ describe('GameShelf Shell & Phase 2 UI Tests', () => {
       accent_color: '#7C6CFF',
       reduced_motion: 'system',
       card_density: 'comfortable',
+      playtime_tracking_enabled: false,
     });
   });
 

@@ -128,6 +128,7 @@ fn generate_1000_synthetic_games() -> Vec<Game> {
             },
             normalized_path: Some(format!("c:/games/game_{}/game_{}.exe", i, i)),
             created_at: "2026-10-10T00:00:00Z".to_string(),
+            playtime_seconds: (i * 10) as u64,
             artwork: None,
         });
     }

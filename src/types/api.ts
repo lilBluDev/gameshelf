@@ -28,6 +28,7 @@ export interface AppSettings {
   accent_color: string;
   reduced_motion: ReducedMotionMode;
   card_density: CardDensity;
+  playtime_tracking_enabled: boolean;
 }
 
 export interface SetSettingPayload {
@@ -41,7 +42,7 @@ export interface CommandError {
   details?: string;
 }
 
-export type SortField = 'title' | 'release_year' | 'status' | 'recently_added' | 'recently_played';
+export type SortField = 'title' | 'release_year' | 'status' | 'recently_added' | 'recently_played' | 'most_played';
 
 export interface ListGamesQuery {
   filter?: 'all' | 'favorites' | 'steam' | 'pc' | 'emulated';

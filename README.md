@@ -87,7 +87,16 @@ GameShelf focuses on privacy, local-first performance, and elegant artwork prese
   - Windowed incremental card rendering in `App.tsx` (initial 60 cards, expanding on scroll) guarantees smooth 60fps interaction and near-zero DOM overhead.
   - Benchmark-verified SQLite queries (< 32ms retrieval for 1,000 games, < 6ms search).
 - **Settings Completeness**: Supports theme modes, 6 accent color presets, reduced motion override (system / always / never), card density modes, and tray behaviors.
-- **Windows Production Installers**: Generates signed-ready MSI (`GameShelf_0.1.0_x64_en-US.msi`, 6.42 MiB) and NSIS setup (`GameShelf_0.1.0_x64-setup.exe`, 4.54 MiB).
+- **Windows Production Installers**: Generates signed-ready MSI (`GameShelf_0.1.0_x64_en-US.msi`, 6.45 MiB) and NSIS setup (`GameShelf_0.1.0_x64-setup.exe`, 4.55 MiB).
+
+### Local Playtime Tracking (Phase 8)
+- **Local-Only & Opt-In**: Disabled by default (`playtime_tracking_enabled: false`), easily toggled in Settings General preferences. Zero network requests or telemetry.
+- **Per-Launch Strategy**:
+  - **Exact Process Tracking**: Background child process waiting (`child.wait()`) for standalone executables and emulator games with automatic `game-playtime-updated` events.
+  - **Approximate Session Tracking**: Explicitly labeled `(Approximate)` indicator for protocol-based launchers (Steam `steam://rungameid/<id>`) with in-app active session tracking, live elapsed display, and session recording.
+- **Most Played Sorting**: Conditional "Most Played" sort option in TopBar available exclusively when playtime tracking is enabled. Automatically resets to Title sort if tracking is toggled off.
+- **Conditional Playtime Badges**: Playtime duration badges on GameCards in list and grid views visible only when tracking is enabled and playtime has been logged.
+- **Per-Game Playtime Reset**: Secure reset action with confirmation dialog in `GameDetailPanel` allowing users to clear recorded playtime and session logs per game.
 
 ---
 
@@ -148,6 +157,6 @@ cargo test
 
 ## Current Limitations
 
-- **Out of Scope (v1)**: Epic/GOG/EA store adapters, playtime tracking, directory watchers, telemetry, and accounts.
+- **Out of Scope (v1)**: Other third-party store adapters (Epic, GOG, EA, Ubisoft), directory watchers, telemetry, and online accounts.
 - **Drive Root Protection**: Bounded folder scanning excludes raw drive roots (`C:\`) to prevent scanning operating system directories.
 - **SteamGridDB Key**: An API key from steamgriddb.com is required for third-party cover search (official Steam CDN covers and deterministic color fallbacks work automatically without a key).

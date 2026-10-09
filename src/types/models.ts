@@ -51,7 +51,17 @@ export interface Game {
   last_launched_at?: string | null;
   normalized_path?: string | null;
   created_at?: string;
+  playtime_seconds?: number;
   artwork?: Partial<Record<ArtworkRole, ArtworkAsset>>;
+}
+
+export interface GameSession {
+  id: string;
+  game_id: string;
+  started_at: string;
+  ended_at?: string | null;
+  duration_seconds: number;
+  is_approximate: boolean;
 }
 
 export type WorkingDirRule = 'EmulatorDir' | 'RomDir' | { Custom: string };

@@ -14,7 +14,7 @@ import {
   SteamScanResult,
   SteamStatusResponse,
 } from '../types/api';
-import { Game } from '../types/models';
+import { Game, GameSession } from '../types/models';
 import { DEV_MOCK_GAMES } from '../fixtures/mockGames';
 
 // Detect whether we are running inside the Tauri webview runtime
@@ -85,6 +85,7 @@ function fallbackHandler<T>(cmd: string, args?: Record<string, unknown>): Promis
         accent_color: savedAccent,
         reduced_motion: savedMotion,
         card_density: savedDensity,
+        playtime_tracking_enabled: localStorage.getItem('gameshelf_playtime_tracking_enabled') === 'true',
       } as unknown as T);
     }
 
@@ -140,6 +141,12 @@ function fallbackHandler<T>(cmd: string, args?: Record<string, unknown>): Promis
         games.sort((a, b) => ((b.created_at || '') > (a.created_at || '') ? 1 : -1));
       } else if (query.sort_by === 'recently_played') {
         games.sort((a, b) => ((b.last_launched_at || '') > (a.last_launched_at || '') ? 1 : -1));
+      } else if (query.sort_by === 'most_played') {
+        games.sort((a, b) => {
+          const ptA = a.playtime_seconds || 0;
+          const ptB = b.playtime_seconds || 0;
+          return desc ? ptA - ptB : ptB - ptA;
+        });
       } else if (query.sort_by === 'release_year') {
         games.sort((a, b) => {
           const yA = a.release_year || 0;
@@ -395,6 +402,43 @@ function fallbackHandler<T>(cmd: string, args?: Record<string, unknown>): Promis
     case 'include_skipped_steam_app':
       return Promise.resolve(undefined as unknown as T);
 
+    case 'record_game_session': {
+      const { gameId, durationSeconds, isApproximate, startedAt, endedAt } = (args || {}) as {
+        gameId: string;
+        startedAt: string;
+        endedAt?: string | null;
+        durationSeconds: number;
+        isApproximate: boolean;
+      };
+      const game = previewGames.find((g) => g.id === gameId);
+      if (game) {
+        game.playtime_seconds = (game.playtime_seconds || 0) + durationSeconds;
+        game.last_launched_at = startedAt;
+      }
+      const session: GameSession = {
+        id: `session-${Date.now()}`,
+        game_id: gameId,
+        started_at: startedAt,
+        ended_at: endedAt,
+        duration_seconds: durationSeconds,
+        is_approximate: isApproximate,
+      };
+      return Promise.resolve(session as unknown as T);
+    }
+
+    case 'get_game_sessions': {
+      return Promise.resolve([] as unknown as T);
+    }
+
+    case 'reset_game_playtime': {
+      const { gameId } = (args || {}) as { gameId: string };
+      const game = previewGames.find((g) => g.id === gameId);
+      if (game) {
+        game.playtime_seconds = 0;
+      }
+      return Promise.resolve(undefined as unknown as T);
+    }
+
     default:
       return Promise.reject({
         code: 'COMMAND_NOT_FOUND',
@@ -416,6 +460,22 @@ export const api = {
     callTauri<Game>('update_launch_settings', { payload }),
   removeGame: (id: string) => callTauri<boolean>('remove_game', { id }),
   launchGame: (id: string) => callTauri<LaunchResult>('launch_game', { id }),
+  recordGameSession: (
+    gameId: string,
+    startedAt: string,
+    endedAt: string | null | undefined,
+    durationSeconds: number,
+    isApproximate: boolean
+  ) =>
+    callTauri<GameSession>('record_game_session', {
+      gameId,
+      startedAt,
+      endedAt: endedAt || null,
+      durationSeconds,
+      isApproximate,
+    }),
+  getGameSessions: (gameId: string) => callTauri<GameSession[]>('get_game_sessions', { gameId }),
+  resetGamePlaytime: (gameId: string) => callTauri<void>('reset_game_playtime', { gameId }),
   openFolder: (folderPath: string) => callTauri<boolean>('open_folder', { folderPath }),
   getSteamStatus: () => callTauri<SteamStatusResponse>('get_steam_status'),
   rescanSteam: () => callTauri<SteamScanResult>('rescan_steam'),

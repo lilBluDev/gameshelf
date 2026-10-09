@@ -75,7 +75,19 @@ pub struct Game {
     pub normalized_path: Option<String>,
     pub created_at: String,
     #[serde(default)]
+    pub playtime_seconds: u64,
+    #[serde(default)]
     pub artwork: Option<HashMap<String, ArtworkAsset>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameSession {
+    pub id: String,
+    pub game_id: String,
+    pub started_at: String,
+    pub ended_at: Option<String>,
+    pub duration_seconds: u64,
+    pub is_approximate: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

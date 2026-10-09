@@ -10,6 +10,7 @@ interface TopBarProps {
   sortBy: SortField;
   onSortByChange: (sort: SortField) => void;
   totalGames: number;
+  playtimeTrackingEnabled?: boolean;
   onOpenAddGame: () => void;
   onOpenScanFolder?: () => void;
   onOpenScanRoms?: () => void;
@@ -23,6 +24,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   sortBy,
   onSortByChange,
   totalGames,
+  playtimeTrackingEnabled,
   onOpenAddGame,
   onOpenScanFolder,
   onOpenScanRoms,
@@ -94,6 +96,9 @@ export const TopBar: React.FC<TopBarProps> = ({
             <option value="title" className="bg-surface text-text">Title (A-Z)</option>
             <option value="recently_added" className="bg-surface text-text">Recently Added</option>
             <option value="recently_played" className="bg-surface text-text">Recently Played</option>
+            {playtimeTrackingEnabled && (
+              <option value="most_played" className="bg-surface text-text">Most Played</option>
+            )}
             <option value="release_year" className="bg-surface text-text">Release Year</option>
             <option value="status" className="bg-surface text-text">Status</option>
           </select>

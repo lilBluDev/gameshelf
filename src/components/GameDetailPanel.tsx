@@ -21,6 +21,7 @@ import {
 import { api } from '../services/api';
 import { refreshGameMetadata } from '../services/artwork';
 import { ArtworkPickerModal } from './ArtworkPickerModal';
+import { formatPlaytime } from '../utils/playtime';
 
 interface GameDetailPanelProps {
   game: Game | null;
@@ -29,6 +30,7 @@ interface GameDetailPanelProps {
   onGameRemoved: (id: string) => void;
   onError: (title: string, message: string) => void;
   onSuccess: (title: string, message: string) => void;
+  playtimeTrackingEnabled?: boolean;
 }
 
 export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
@@ -38,11 +40,18 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
   onGameRemoved,
   onError,
   onSuccess,
+  playtimeTrackingEnabled,
 }) => {
   const [isLaunching, setIsLaunching] = useState(false);
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
   const [isEditingLaunch, setIsEditingLaunch] = useState(false);
   const [isConfirmingRemove, setIsConfirmingRemove] = useState(false);
+  const [isConfirmingResetPlaytime, setIsConfirmingResetPlaytime] = useState(false);
+  const [isResettingPlaytime, setIsResettingPlaytime] = useState(false);
+
+  // Approximate session tracking state (Steam & launchers)
+  const [activeSessionStart, setActiveSessionStart] = useState<Date | null>(null);
+  const [sessionElapsedSecs, setSessionElapsedSecs] = useState<number>(0);
 
   // Artwork & Refresh states
   const [isArtworkModalOpen, setIsArtworkModalOpen] = useState(false);
@@ -66,6 +75,23 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
     setHeroError(false);
     setCoverError(false);
   }, [game?.id, game?.artwork?.hero?.cached_path, game?.artwork?.cover?.cached_path]);
+
+  useEffect(() => {
+    setActiveSessionStart(null);
+    setSessionElapsedSecs(0);
+  }, [game?.id]);
+
+  useEffect(() => {
+    if (!activeSessionStart) {
+      setSessionElapsedSecs(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      const elapsed = Math.max(0, Math.floor((Date.now() - activeSessionStart.getTime()) / 1000));
+      setSessionElapsedSecs(elapsed);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeSessionStart]);
 
   if (!game) return null;
 
@@ -125,6 +151,10 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
         status: 'Installed' as const,
       };
       onGameUpdated(updated);
+
+      if (playtimeTrackingEnabled && game.source_kind === 'Steam') {
+        setActiveSessionStart(new Date());
+      }
     } catch (err: unknown) {
       const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : String(err);
       onError('Launch Failed', msg);
@@ -133,6 +163,48 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
       }
     } finally {
       setIsLaunching(false);
+    }
+  };
+
+  // End approximate session (Steam)
+  const handleEndSteamSession = async () => {
+    if (!activeSessionStart) return;
+    const startedAt = activeSessionStart.toISOString();
+    const endedAt = new Date().toISOString();
+    const duration = sessionElapsedSecs;
+    try {
+      await api.recordGameSession(game.id, startedAt, endedAt, duration, true);
+      const updated: Game = {
+        ...game,
+        playtime_seconds: (game.playtime_seconds || 0) + duration,
+      };
+      onGameUpdated(updated);
+      setActiveSessionStart(null);
+      setSessionElapsedSecs(0);
+      onSuccess('Session Recorded', `Approximate playtime of ${formatPlaytime(duration)} recorded.`);
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : String(err);
+      onError('Session Record Failed', msg);
+    }
+  };
+
+  // Reset playtime for this game
+  const handleResetPlaytime = async () => {
+    setIsResettingPlaytime(true);
+    try {
+      await api.resetGamePlaytime(game.id);
+      const updated: Game = {
+        ...game,
+        playtime_seconds: 0,
+      };
+      onGameUpdated(updated);
+      setIsConfirmingResetPlaytime(false);
+      onSuccess('Playtime Reset', `Playtime for "${game.title}" has been reset to 0.`);
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : String(err);
+      onError('Reset Failed', msg);
+    } finally {
+      setIsResettingPlaytime(false);
     }
   };
 
@@ -462,6 +534,63 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               <div className="text-[10px] text-muted flex items-center justify-center gap-1 mt-1 font-mono">
                 <Clock className="w-3 h-3" />
                 <span>Last played: {new Date(game.last_launched_at).toLocaleDateString()}</span>
+              </div>
+            )}
+
+            {playtimeTrackingEnabled && (
+              <div className="bg-surface-2/60 border border-border rounded-control p-2.5 mt-2 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted flex items-center gap-1.5 font-medium">
+                    <Clock className="w-3.5 h-3.5 text-accent" />
+                    <span>Playtime</span>
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-semibold text-text">
+                      {formatPlaytime(game.playtime_seconds || 0)}
+                    </span>
+                    {game.source_kind === 'Steam' && (
+                      <span
+                        className="text-[10px] text-amber-400/90 font-mono"
+                        title="Steam launches are activated via protocol and playtime is tracked approximately"
+                      >
+                        (Approximate)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Active Running Session Indicator (Steam) */}
+                {activeSessionStart && (
+                  <div className="bg-accent/10 border border-accent/30 rounded p-2 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-accent font-semibold text-[11px] flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
+                        Session in progress
+                      </span>
+                      <span className="font-mono font-bold text-accent">
+                        {formatPlaytime(sessionElapsedSecs)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleEndSteamSession}
+                      className="w-full py-1 rounded bg-accent hover:bg-accent-hover text-white text-[11px] font-semibold transition-colors"
+                    >
+                      End & Record Session
+                    </button>
+                  </div>
+                )}
+
+                {/* Reset Playtime Action */}
+                {(game.playtime_seconds || 0) > 0 && !activeSessionStart && (
+                  <div className="flex justify-end pt-0.5">
+                    <button
+                      onClick={() => setIsConfirmingResetPlaytime(true)}
+                      className="text-[10px] text-muted hover:text-danger transition-colors underline decoration-dotted"
+                    >
+                      Reset Playtime
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -889,7 +1018,54 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
         </div>
       )}
 
-      {/* Modal 4: Artwork Picker Modal */}
+      {/* Modal 4: Reset Playtime Confirmation Dialog */}
+      {isConfirmingResetPlaytime && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-100">
+          <div className="w-full max-w-sm bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
+            <div className="flex items-center gap-2.5 text-warning border-b border-border pb-2.5">
+              <RotateCcw className="w-5 h-5 flex-shrink-0" />
+              <h3 className="text-sm font-bold text-text">Reset Playtime?</h3>
+            </div>
+
+            <div className="space-y-2 text-xs leading-relaxed text-text/80">
+              <p>
+                Are you sure you want to reset recorded playtime for <strong>{game.title}</strong> to 0?
+              </p>
+              <p className="text-muted text-[11px]">
+                This will clear all local session logs for this game. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                disabled={isResettingPlaytime}
+                onClick={() => setIsConfirmingResetPlaytime(false)}
+                className="px-3.5 py-1.5 rounded-control text-xs text-muted hover:text-text disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isResettingPlaytime}
+                onClick={handleResetPlaytime}
+                className="px-4 py-1.5 rounded-control bg-danger hover:bg-danger/90 text-white text-xs font-semibold shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isResettingPlaytime ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Resetting...</span>
+                  </>
+                ) : (
+                  <span>Reset Playtime</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 5: Artwork Picker Modal */}
       {isArtworkModalOpen && (
         <ArtworkPickerModal
           game={game}

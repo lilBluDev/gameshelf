@@ -22,6 +22,14 @@ pub fn validate_and_launch_with_db(
     action: &LaunchAction,
     db: Option<&crate::db::Database>,
 ) -> AppResult<LaunchResult> {
+    validate_and_spawn_with_db(action, db).map(|(res, _)| res)
+}
+
+/// Validates a launch action and executes the target process, returning both the LaunchResult and an optional spawned Child process handle for tracking.
+pub fn validate_and_spawn_with_db(
+    action: &LaunchAction,
+    db: Option<&crate::db::Database>,
+) -> AppResult<(LaunchResult, Option<std::process::Child>)> {
     match action {
         LaunchAction::Executable {
             path,
@@ -77,11 +85,15 @@ pub fn validate_and_launch_with_db(
                 .spawn()
                 .map_err(|e| AppError::Internal(format!("Failed to spawn executable: {}", e)))?;
 
-            Ok(LaunchResult {
-                success: true,
-                pid: Some(child.id()),
-                message: format!("Successfully launched process (PID {})", child.id()),
-            })
+            let pid = child.id();
+            Ok((
+                LaunchResult {
+                    success: true,
+                    pid: Some(pid),
+                    message: format!("Successfully launched process (PID {})", pid),
+                },
+                Some(child),
+            ))
         }
 
         LaunchAction::Shortcut {
@@ -121,11 +133,15 @@ pub fn validate_and_launch_with_db(
                 AppError::Internal(format!("Failed to spawn shortcut target: {}", e))
             })?;
 
-            Ok(LaunchResult {
-                success: true,
-                pid: Some(child.id()),
-                message: format!("Successfully launched process (PID {})", child.id()),
-            })
+            let pid = child.id();
+            Ok((
+                LaunchResult {
+                    success: true,
+                    pid: Some(pid),
+                    message: format!("Successfully launched process (PID {})", pid),
+                },
+                Some(child),
+            ))
         }
 
         LaunchAction::Steam { app_id } => {
@@ -154,11 +170,14 @@ pub fn validate_and_launch_with_db(
 
             crate::platform::windows::launch_uri(&uri)?;
 
-            Ok(LaunchResult {
-                success: true,
-                pid: None,
-                message: format!("Triggered Steam launch for App ID {}", app_id),
-            })
+            Ok((
+                LaunchResult {
+                    success: true,
+                    pid: None,
+                    message: format!("Triggered Steam launch for App ID {}", app_id),
+                },
+                None,
+            ))
         }
 
         LaunchAction::EmulatedGame {
@@ -279,16 +298,20 @@ pub fn validate_and_launch_with_db(
                 ))
             })?;
 
-            Ok(LaunchResult {
-                success: true,
-                pid: Some(child.id()),
-                message: format!(
-                    "Successfully launched {} via {} (PID {})",
-                    rom.file_name().and_then(|s| s.to_str()).unwrap_or("game"),
-                    profile.name,
-                    child.id()
-                ),
-            })
+            let pid = child.id();
+            Ok((
+                LaunchResult {
+                    success: true,
+                    pid: Some(pid),
+                    message: format!(
+                        "Successfully launched {} via {} (PID {})",
+                        rom.file_name().and_then(|s| s.to_str()).unwrap_or("game"),
+                        profile.name,
+                        pid
+                    ),
+                },
+                Some(child),
+            ))
         }
 
         LaunchAction::Unavailable { reason } => Err(AppError::Internal(format!(
