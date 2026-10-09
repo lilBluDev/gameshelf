@@ -48,6 +48,9 @@ export interface Game {
   user_tags: string[];
   match_confidence?: number | null;
   provider_attribution?: string | null;
+  last_launched_at?: string | null;
+  normalized_path?: string | null;
+  created_at?: string;
   artwork?: Partial<Record<ArtworkRole, ArtworkAsset>>;
 }
 

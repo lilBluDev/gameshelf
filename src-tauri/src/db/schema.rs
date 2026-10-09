@@ -71,6 +71,9 @@ pub struct Game {
     pub user_tags: Vec<String>,
     pub match_confidence: Option<f64>,
     pub provider_attribution: Option<String>,
+    pub last_launched_at: Option<String>,
+    pub normalized_path: Option<String>,
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

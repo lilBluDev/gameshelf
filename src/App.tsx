@@ -6,9 +6,10 @@ import { GameCard } from './components/GameCard';
 import { GameDetailPanel } from './components/GameDetailPanel';
 import { EmptyState } from './components/EmptyState';
 import { SettingsModal } from './components/SettingsModal';
+import { AddGameModal } from './components/AddGameModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { api } from './services/api';
-import { AppInfo, AppSettings, CommandError, ViewMode } from './types/api';
+import { AppInfo, AppSettings, CommandError, SortField, ViewMode } from './types/api';
 import { Game } from './types/models';
 
 export const App: React.FC = () => {
@@ -25,10 +26,11 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<NavFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'title' | 'release_year' | 'status'>('title');
+  const [sortBy, setSortBy] = useState<SortField>('title');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAddGameOpen, setIsAddGameOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const addToast = (type: 'error' | 'success' | 'info', title: string, message?: string) => {
@@ -118,6 +120,25 @@ export const App: React.FC = () => {
     }
   };
 
+  // Handlers for Add, Update, and Remove
+  const handleGameAdded = (newGame: Game) => {
+    setGames((prev) => [newGame, ...prev]);
+    setSelectedGame(newGame);
+    addToast('success', 'Game Added', `"${newGame.title}" has been added to your library.`);
+  };
+
+  const handleGameUpdated = (updated: Game) => {
+    setGames((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+    setSelectedGame(updated);
+  };
+
+  const handleGameRemoved = (removedId: string) => {
+    setGames((prev) => prev.filter((g) => g.id !== removedId));
+    if (selectedGame?.id === removedId) {
+      setSelectedGame(null);
+    }
+  };
+
   // Filtered and sorted games
   const visibleGames = useMemo(() => {
     let result = [...games];
@@ -128,7 +149,7 @@ export const App: React.FC = () => {
     } else if (activeFilter === 'steam') {
       result = result.filter((g) => g.source_kind === 'Steam');
     } else if (activeFilter === 'pc') {
-      result = result.filter((g) => g.source_kind === 'Standalone' || g.source_kind === 'Shortcut');
+      result = result.filter((g) => g.source_kind === 'Standalone' || g.source_kind === 'Shortcut' || g.source_kind === 'Manual');
     } else if (activeFilter === 'emulated') {
       result = result.filter((g) => g.source_kind === 'Emulated');
     }
@@ -150,6 +171,16 @@ export const App: React.FC = () => {
     result.sort((a, b) => {
       if (sortBy === 'title') {
         return a.sort_title.localeCompare(b.sort_title);
+      } else if (sortBy === 'recently_added') {
+        const tA = a.created_at || '';
+        const tB = b.created_at || '';
+        return tB.localeCompare(tA);
+      } else if (sortBy === 'recently_played') {
+        const lA = a.last_launched_at || '';
+        const lB = b.last_launched_at || '';
+        if (lA && !lB) return -1;
+        if (!lA && lB) return 1;
+        return lB.localeCompare(lA);
       } else if (sortBy === 'release_year') {
         const yA = a.release_year || 0;
         const yB = b.release_year || 0;
@@ -204,6 +235,7 @@ export const App: React.FC = () => {
             sortBy={sortBy}
             onSortByChange={setSortBy}
             totalGames={visibleGames.length}
+            onOpenAddGame={() => setIsAddGameOpen(true)}
           />
 
           {/* Games Display Area */}
@@ -250,9 +282,28 @@ export const App: React.FC = () => {
 
         {/* Right Detail Inspection Panel */}
         {selectedGame && (
-          <GameDetailPanel game={selectedGame} onClose={() => setSelectedGame(null)} />
+          <GameDetailPanel
+            game={selectedGame}
+            onClose={() => setSelectedGame(null)}
+            onGameUpdated={handleGameUpdated}
+            onGameRemoved={handleGameRemoved}
+            onError={(t, m) => addToast('error', t, m)}
+            onSuccess={(t, m) => addToast('success', t, m)}
+          />
         )}
       </div>
+
+      {/* Add Game Modal */}
+      <AddGameModal
+        isOpen={isAddGameOpen}
+        onClose={() => setIsAddGameOpen(false)}
+        onGameAdded={handleGameAdded}
+        onOpenExisting={(existing) => {
+          setSelectedGame(existing);
+          setIsAddGameOpen(false);
+        }}
+        onError={(t, m) => addToast('error', t, m)}
+      />
 
       {/* Settings Modal */}
       <SettingsModal

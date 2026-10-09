@@ -33,14 +33,62 @@ export interface CommandError {
   details?: string;
 }
 
+export type SortField = 'title' | 'release_year' | 'status' | 'recently_added' | 'recently_played';
+
 export interface ListGamesQuery {
   filter?: 'all' | 'favorites' | 'steam' | 'pc' | 'emulated';
   search?: string;
-  sort_by?: 'title' | 'release_year' | 'status';
+  sort_by?: SortField;
   sort_order?: 'asc' | 'desc';
+  include_hidden?: boolean;
 }
 
 export interface ListGamesResponse {
   games: Game[];
   total: number;
+}
+
+export interface AddManualGamePayload {
+  title: string;
+  executable_path: string;
+  args?: string[];
+  working_dir?: string;
+  is_shortcut: boolean;
+}
+
+export interface UpdateGamePayload {
+  id: string;
+  title?: string;
+  notes?: string;
+  user_tags?: string[];
+  is_favorite?: boolean;
+  is_hidden?: boolean;
+}
+
+export interface UpdateLaunchSettingsPayload {
+  id: string;
+  executable_path: string;
+  args: string[];
+  working_dir?: string;
+}
+
+export interface InspectFileResponse {
+  title: string;
+  executable_path: string;
+  working_dir?: string | null;
+  args: string[];
+  is_shortcut: boolean;
+  exists: boolean;
+  normalized_path: string;
+}
+
+export interface DuplicateCheckResponse {
+  is_duplicate: boolean;
+  existing_game: Game | null;
+}
+
+export interface LaunchResult {
+  success: boolean;
+  pid: number | null;
+  message: string;
 }

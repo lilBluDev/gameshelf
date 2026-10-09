@@ -1,7 +1,9 @@
 pub mod commands;
 pub mod db;
 pub mod error;
+pub mod launcher;
 pub mod logging;
+pub mod platform;
 
 use std::path::PathBuf;
 use tauri::Manager;
@@ -61,6 +63,14 @@ pub fn run() {
             commands::settings::get_settings,
             commands::settings::set_setting,
             commands::games::list_games,
+            commands::games::inspect_file,
+            commands::games::check_duplicate_path,
+            commands::games::add_manual_game,
+            commands::games::update_game,
+            commands::games::update_launch_settings,
+            commands::games::remove_game,
+            commands::games::launch_game,
+            commands::games::open_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running GameShelf application");

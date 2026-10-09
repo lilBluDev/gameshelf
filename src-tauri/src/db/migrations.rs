@@ -11,13 +11,20 @@ pub struct Migration {
     pub sql: &'static str,
 }
 
-pub const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    description: "Initial schema with games, overrides, artwork, emulators, and settings",
-    sql: include_str!("../../migrations/001_initial_schema.sql"),
-}];
+pub const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        description: "Initial schema with games, overrides, artwork, emulators, and settings",
+        sql: include_str!("../../migrations/001_initial_schema.sql"),
+    },
+    Migration {
+        version: 2,
+        description: "Add normalized path and last_launched_at tracking",
+        sql: include_str!("../../migrations/002_phase2_manual_library.sql"),
+    },
+];
 
-pub const LATEST_VERSION: u32 = 1;
+pub const LATEST_VERSION: u32 = 2;
 
 /// Get the highest applied migration version. Returns 0 if no migrations have been applied.
 pub fn get_current_version(conn: &Connection) -> AppResult<u32> {
@@ -152,5 +159,42 @@ mod tests {
 
         let ver2 = run_migrations(&mut conn, None).unwrap();
         assert_eq!(ver2, LATEST_VERSION);
+    }
+
+    #[test]
+    fn test_older_version_upgrades() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        // Manually apply version 1 only
+        let tx = conn.transaction().unwrap();
+        tx.execute_batch(MIGRATIONS[0].sql).unwrap();
+        tx.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (1, datetime('now'))",
+            [],
+        )
+        .unwrap();
+        tx.commit().unwrap();
+
+        assert_eq!(get_current_version(&conn).unwrap(), 1);
+
+        // Run migrations to upgrade to latest
+        let final_ver = run_migrations(&mut conn, None).unwrap();
+        assert_eq!(final_ver, LATEST_VERSION);
+
+        // Verify the new columns exist by querying them
+        conn.execute(
+            "INSERT INTO games (id, title, sort_title, launch_action, source_kind, status, created_at, updated_at, last_launched_at, normalized_path)
+             VALUES ('test-id', 'Test Game', 'test game', '{\"type\":\"Unavailable\",\"reason\":\"none\"}', 'Manual', 'Installed', '2026-01-01', '2026-01-01', '2026-01-02', 'c:/test.exe')",
+            [],
+        )
+        .unwrap();
+
+        let path: String = conn
+            .query_row(
+                "SELECT normalized_path FROM games WHERE id = 'test-id'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(path, "c:/test.exe");
     }
 }

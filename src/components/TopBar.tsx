@@ -1,15 +1,16 @@
 import React from 'react';
 import { Search, LayoutGrid, List, Plus, ArrowUpDown, X } from 'lucide-react';
-import { ViewMode } from '../types/api';
+import { SortField, ViewMode } from '../types/api';
 
 interface TopBarProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   viewMode: ViewMode;
   onViewModeChange: (m: ViewMode) => void;
-  sortBy: 'title' | 'release_year' | 'status';
-  onSortByChange: (sort: 'title' | 'release_year' | 'status') => void;
+  sortBy: SortField;
+  onSortByChange: (sort: SortField) => void;
   totalGames: number;
+  onOpenAddGame: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -20,6 +21,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   sortBy,
   onSortByChange,
   totalGames,
+  onOpenAddGame,
 }) => {
   return (
     <div className="h-14 border-b border-border bg-bg/50 backdrop-blur px-6 flex items-center justify-between gap-4 select-none flex-shrink-0">
@@ -30,7 +32,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search games, developers, tags..."
+          placeholder="Search title, developer, tags..."
           className="w-full bg-surface border border-border rounded-control pl-9 pr-8 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent transition-colors"
         />
         {searchQuery && (
@@ -58,10 +60,12 @@ export const TopBar: React.FC<TopBarProps> = ({
           <span className="text-muted text-[11px]">Sort:</span>
           <select
             value={sortBy}
-            onChange={(e) => onSortByChange(e.target.value as 'title' | 'release_year' | 'status')}
+            onChange={(e) => onSortByChange(e.target.value as SortField)}
             className="bg-transparent text-text border-none focus:outline-none text-xs cursor-pointer"
           >
             <option value="title" className="bg-surface text-text">Title (A-Z)</option>
+            <option value="recently_added" className="bg-surface text-text">Recently Added</option>
+            <option value="recently_played" className="bg-surface text-text">Recently Played</option>
             <option value="release_year" className="bg-surface text-text">Release Year</option>
             <option value="status" className="bg-surface text-text">Status</option>
           </select>
@@ -93,17 +97,14 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
         </div>
 
-        {/* Add Game Button (Disabled until Phase 2) */}
+        {/* Add Game Button (Enabled in Phase 2) */}
         <button
-          disabled
-          title="Game importing is coming in Phase 2"
-          className="flex items-center gap-1.5 bg-accent/30 text-accent border border-accent/20 rounded-control px-3 py-1.5 text-xs font-medium cursor-not-allowed opacity-60 transition-opacity"
+          onClick={onOpenAddGame}
+          title="Add Game Executable or Shortcut"
+          className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white rounded-control px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-all"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Add Game</span>
-          <span className="text-[10px] bg-bg/60 px-1 py-0.2 rounded text-muted font-mono">
-            Phase 2
-          </span>
         </button>
       </div>
     </div>

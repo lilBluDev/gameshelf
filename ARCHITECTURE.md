@@ -13,12 +13,12 @@ GameShelf is architected as a local-first desktop application with a clear typed
 ┌───────────────────────────▼────────────────────────────┐
 │                    Tauri 2 Core                        │
 │   (Commands, Window Management, Narrow Capabilities)   │
-└──────────────┬──────────────────────────┬──────────────┘
-               │                          │
-┌──────────────▼─────────────┐   ┌────────▼──────────────┐
-│     SQLite (rusqlite)      │   │  Local File Logging   │
-│  Versioned Migrations, WAL │   │  tracing-subscriber   │
-└────────────────────────────┘   └───────────────────────┘
+└───────┬───────────────────┬───────────────────┬────────┘
+        │                   │                   │
+┌───────▼──────┐    ┌───────▼──────┐    ┌───────▼──────┐
+│ SQLite DB    │    │ Launch Engine│    │ Platform/FS  │
+│ (rusqlite)   │    │  (std::cmd)  │    │ (PE, lnk)    │
+└──────────────┘    └──────────────┘    └──────────────┘
 ```
 
 ---
@@ -31,9 +31,10 @@ game-launcher/
 │   ├── components/             # Reusable accessible UI components
 │   │   ├── TitleBar.tsx        # Native-respectful custom title bar with window controls
 │   │   ├── Sidebar.tsx         # Navigation sidebar (Library, Favorites, Platforms, Settings)
-│   │   ├── TopBar.tsx          # Search, sort, view toggle, and import trigger
+│   │   ├── TopBar.tsx          # Search, sort, view toggle, and Add Game modal trigger
 │   │   ├── GameCard.tsx        # Cover card with 2:3 ratio and list-item view
-│   │   ├── GameDetailPanel.tsx # Side panel for inspecting game launch actions and metadata
+│   │   ├── GameDetailPanel.tsx # Side panel for inspecting game, Play, Edit, and Config
+│   │   ├── AddGameModal.tsx    # Modal for file selection, auto-inspection, and adding games
 │   │   ├── EmptyState.tsx      # Friendly empty state when 0 games are loaded
 │   │   ├── SettingsModal.tsx   # Preference modal (General, Appearance, Diagnostics, etc.)
 │   │   └── Toast.tsx           # Error and status toast notification container
@@ -53,19 +54,25 @@ game-launcher/
 │   └── main.tsx                # React DOM mount point
 ├── src-tauri/
 │   ├── capabilities/
-│   │   └── default.json        # Narrowly scoped Tauri 2 permissions (no shell access)
+│   │   └── default.json        # Narrowly scoped Tauri 2 permissions (no arbitrary shell)
 │   ├── migrations/
-│   │   └── 001_initial_schema.sql # SQLite schema with games, overrides, artwork, etc.
+│   │   ├── 001_initial_schema.sql        # Core tables: games, overrides, artwork, etc.
+│   │   └── 002_phase2_manual_library.sql # Added normalized_path, last_launched_at, indexes
 │   ├── src/
 │   │   ├── commands/           # Typed Tauri IPC command handlers
 │   │   │   ├── app.rs          # get_app_info
-│   │   │   ├── games.rs        # list_games
+│   │   │   ├── games.rs        # inspect_file, add_manual_game, launch_game, remove_game, etc.
 │   │   │   ├── settings.rs     # get_settings, set_setting
 │   │   │   └── mod.rs
 │   │   ├── db/                 # SQLite persistence layer
 │   │   │   ├── migrations.rs   # Migration runner with automatic DB backup
 │   │   │   ├── schema.rs       # Typed models (Game, LaunchAction tagged enum)
 │   │   │   └── mod.rs          # Database handle, WAL configuration, query helpers
+│   │   ├── launcher/           # Process execution engine
+│   │   │   └── mod.rs          # validate_and_launch via std::process::Command with arg vectors
+│   │   ├── platform/           # Windows-specific system inspection
+│   │   │   ├── mod.rs
+│   │   │   └── windows.rs      # Path normalization, PE version info extraction, lnk resolution
 │   │   ├── error.rs            # AppError (thiserror) with custom frontend serialization
 │   │   ├── logging.rs          # Structured rolling daily file logger (tracing)
 │   │   ├── lib.rs              # App setup, path resolution, and command registration
@@ -82,31 +89,32 @@ game-launcher/
 
 ### 1. Game Model & User Overrides
 Games are stored in SQLite with distinct separation between scanned provider data (`games`) and user modifications (`game_overrides`). This ensures that re-scanning libraries never overwrites user customizations (custom titles, tags, notes, or artwork overrides).
+Queries use `COALESCE(go.field, g.field)` to dynamically resolve the effective presentation data.
 
-### 2. LaunchAction Tagged Enum
+### 2. LaunchAction Tagged Enum & Security
 Launch actions are never free-form shell strings. They are represented as a tagged enum:
-- `Executable { path, args, working_dir, env }`
+- `Executable { path, args: Vec<String>, working_dir, env }`
 - `Steam { app_id }` — launched via `steam://rungameid/<id>`
 - `Shortcut { target, args, working_dir }`
 - `EmulatedGame { profile_id, rom_path, arg_overrides }`
 - `Unavailable { reason }`
+
+**Process Execution Security**:
+- Processes are launched exclusively via `std::process::Command::new(binary_path).args(&arg_vector)`.
+- Never invoked through `cmd.exe /c` or PowerShell strings.
+- Automatically handles spaces and Unicode characters in filenames and directories without escaping vulnerabilities.
+- Working directory is validated before execution. If the configured working directory is invalid or missing, it falls back safely to the executable's parent directory.
 
 ### 3. Database Migrations & Backup
 The migration runner in `src-tauri/src/db/migrations.rs` checks `schema_migrations`. When upgrading an existing database (`version > 0`), it automatically creates a timestamped backup file before applying pending transactions.
 
 ---
 
-## How to Add an Emulator or Store Adapter
+## Windows Integration & Inspection
 
-### Adding a Store Adapter (Planned for Phase 2)
-1. Create a scanner submodule in `src-tauri/src/scanner/<store_name>.rs` (e.g. `steam.rs`).
-2. Implement a detector function returning `Vec<Game>` with `source_kind: SourceKind::<Store>` and a typed `LaunchAction` (e.g. `LaunchAction::Steam { app_id }`).
-3. Store paths are normalized for Windows case-insensitivity while preserving original display casing.
-4. Expose the scanner through a typed command registered in `src-tauri/src/lib.rs`.
+### 1. Path Normalization & Duplicate Detection
+Paths on Windows are canonicalized by standardizing separators (`/` vs `\`), trimming surrounding quotes, and stripping Windows extended length prefixes (`\\?\`). They are compared case-insensitively using `normalized_path` stored in the database.
 
-### Adding an Emulator Profile (Planned for Phase 5)
-1. Add a predefined profile to `emulator_profiles` table or seed data with:
-   - `systems`: Array of supported console IDs (e.g. `["snes", "sfc"]`).
-   - `extensions`: Supported ROM extensions (e.g. `[".sfc", ".smc", ".zip"]`).
-   - `argument_template`: Parameterized arguments using typed placeholders (`["{rom}"]`, `["--fullscreen", "{rom}"]`).
-2. Implement an executable path validator in `src-tauri/src/launcher/emulator.rs` to verify the emulator binary exists before launching.
+### 2. PE File & Shortcut (.lnk) Inspection
+- **PE Files**: Inspects Windows PE version resources for `FileDescription` and `ProductName` to extract authentic titles. Falls back to clean stem formatting (stripping release tags, version numbers, and replacing separators).
+- **Shortcuts (`.lnk`)**: Uses binary inspection of Shell Link structures to resolve the real target executable, arguments, and working directory without executing shell scripts.
