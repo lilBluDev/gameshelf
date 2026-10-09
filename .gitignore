@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+target/
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
+
+# Tauri build artifacts
+src-tauri/target/
+
+# Local databases and logs
+*.db
+*.db-shm
+*.db-wal
+*.log
+data/
+logs/
+
+# IDE and OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
