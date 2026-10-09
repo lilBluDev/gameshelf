@@ -6,6 +6,7 @@
 - **Rust Toolchain**: rustc 1.99.0 / cargo 1.99.0 / rustfmt 1.10.0 / clippy 0.1.99 (`stable-x86_64-pc-windows-msvc` installed via Rustup)
 - **WebView2 Runtime**: Installed at `C:\Program Files (x86)\Microsoft\EdgeWebView\Application`
 - **Visual Studio C++ Build Tools**: Missing on host machine (linker `link.exe` and Windows SDK `.lib` files not found; requires elevated admin rights to install via Visual Studio Installer).
+- **Security Policy**: Windows Defender Application Control (WDAC) / Smart App Control is enforced, blocking unsigned toolchains executed from user directories. Only Microsoft-signed installations (such as Visual Studio Build Tools via installer) are permitted.
 
 ---
 
