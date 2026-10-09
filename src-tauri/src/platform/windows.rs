@@ -23,27 +23,52 @@ pub fn normalize_path<P: AsRef<Path>>(path: P) -> String {
 
 /// Inferred title from executable file name or PE Version Info
 pub fn infer_title_from_stem(stem: &str) -> String {
-    let clean = stem.replace('_', " ").replace('.', " ").replace("-", " ");
+    let clean = stem.replace(['_', '.', '-'], " ");
 
-    // Split words and remove common noisy release tags
-    let words: Vec<&str> = clean
-        .split_whitespace()
-        .filter(|w| {
-            let lower = w.to_lowercase();
-            !lower.starts_with("v1")
-                && !lower.starts_with("v2")
-                && !lower.starts_with("v3")
-                && !lower.starts_with("v0")
-                && lower != "win64"
-                && lower != "win32"
-                && lower != "x64"
-                && lower != "x86"
-                && lower != "shipping"
-                && lower != "standalone"
-                && lower != "game"
-                && lower != "launcher"
-        })
-        .collect();
+    let mut words: Vec<&str> = Vec::new();
+    let mut in_version = false;
+
+    for w in clean.split_whitespace() {
+        let lower = w.to_lowercase();
+        let is_version_tag = (lower.starts_with('v')
+            && lower.len() > 1
+            && lower[1..]
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_digit()))
+            || lower.starts_with("build")
+            || lower.starts_with("release");
+
+        let is_platform = matches!(
+            lower.as_str(),
+            "win64"
+                | "win32"
+                | "x64"
+                | "x86"
+                | "windows"
+                | "shipping"
+                | "standalone"
+                | "game"
+                | "launcher"
+        );
+
+        if is_version_tag {
+            in_version = true;
+            continue;
+        }
+
+        if in_version && w.chars().all(|c| c.is_ascii_digit() || c == '.') {
+            continue;
+        } else {
+            in_version = false;
+        }
+
+        if is_platform {
+            continue;
+        }
+
+        words.push(w);
+    }
 
     if words.is_empty() {
         stem.to_string()
@@ -77,7 +102,7 @@ pub fn extract_pe_title<P: AsRef<Path>>(path: P) -> Option<String> {
             let mut title_utf16 = Vec::new();
             let mut i = start;
             // Align to 2-byte boundary
-            if i % 2 != 0 {
+            if !i.is_multiple_of(2) {
                 i += 1;
             }
             // Read until null terminator (0x00, 0x00)
@@ -149,62 +174,59 @@ pub fn resolve_shortcut<P: AsRef<Path>>(lnk_path: P) -> Result<InferredGameMetad
     let mut target_path: Option<String> = None;
 
     // Parse LinkInfo if present
-    if has_link_info {
-        if cursor + 28 <= bytes.len() {
-            let link_info_size =
-                u32::from_le_bytes(bytes[cursor..cursor + 4].try_into().unwrap()) as usize;
-            let header_size =
-                u32::from_le_bytes(bytes[cursor + 4..cursor + 8].try_into().unwrap()) as usize;
-            let flags = u32::from_le_bytes(bytes[cursor + 8..cursor + 12].try_into().unwrap());
-            let local_base_path_offset =
-                u32::from_le_bytes(bytes[cursor + 16..cursor + 20].try_into().unwrap()) as usize;
+    if has_link_info && cursor + 28 <= bytes.len() {
+        let link_info_size =
+            u32::from_le_bytes(bytes[cursor..cursor + 4].try_into().unwrap()) as usize;
+        let header_size =
+            u32::from_le_bytes(bytes[cursor + 4..cursor + 8].try_into().unwrap()) as usize;
+        let flags = u32::from_le_bytes(bytes[cursor + 8..cursor + 12].try_into().unwrap());
+        let local_base_path_offset =
+            u32::from_le_bytes(bytes[cursor + 16..cursor + 20].try_into().unwrap()) as usize;
 
-            let has_local_base_path = (flags & 0x01) != 0;
+        let has_local_base_path = (flags & 0x01) != 0;
 
-            if has_local_base_path && local_base_path_offset < link_info_size {
-                let start = cursor + local_base_path_offset;
-                if start < bytes.len() {
-                    // Null-terminated ANSI string
-                    let end = bytes[start..]
-                        .iter()
-                        .position(|&b| b == 0)
-                        .map(|p| start + p)
-                        .unwrap_or(bytes.len());
-                    if let Ok(path_str) = String::from_utf8(bytes[start..end].to_vec()) {
-                        if !path_str.trim().is_empty() {
-                            target_path = Some(path_str.trim().to_string());
-                        }
+        if has_local_base_path && local_base_path_offset < link_info_size {
+            let start = cursor + local_base_path_offset;
+            if start < bytes.len() {
+                // Null-terminated ANSI string
+                let end = bytes[start..]
+                    .iter()
+                    .position(|&b| b == 0)
+                    .map(|p| start + p)
+                    .unwrap_or(bytes.len());
+                if let Ok(path_str) = String::from_utf8(bytes[start..end].to_vec()) {
+                    if !path_str.trim().is_empty() {
+                        target_path = Some(path_str.trim().to_string());
                     }
                 }
             }
-
-            // Unicode local base path if header is large enough
-            if header_size >= 36 && cursor + 32 <= bytes.len() {
-                let unicode_offset =
-                    u32::from_le_bytes(bytes[cursor + 28..cursor + 32].try_into().unwrap())
-                        as usize;
-                if unicode_offset < link_info_size {
-                    let start = cursor + unicode_offset;
-                    let mut utf16_chars = Vec::new();
-                    let mut i = start;
-                    while i + 1 < bytes.len() {
-                        let val = u16::from_le_bytes([bytes[i], bytes[i + 1]]);
-                        if val == 0 {
-                            break;
-                        }
-                        utf16_chars.push(val);
-                        i += 2;
-                    }
-                    if let Ok(u_str) = String::from_utf16(&utf16_chars) {
-                        if !u_str.trim().is_empty() {
-                            target_path = Some(u_str.trim().to_string());
-                        }
-                    }
-                }
-            }
-
-            cursor += link_info_size;
         }
+
+        // Unicode local base path if header is large enough
+        if header_size >= 36 && cursor + 32 <= bytes.len() {
+            let unicode_offset =
+                u32::from_le_bytes(bytes[cursor + 28..cursor + 32].try_into().unwrap()) as usize;
+            if unicode_offset < link_info_size {
+                let start = cursor + unicode_offset;
+                let mut utf16_chars = Vec::new();
+                let mut i = start;
+                while i + 1 < bytes.len() {
+                    let val = u16::from_le_bytes([bytes[i], bytes[i + 1]]);
+                    if val == 0 {
+                        break;
+                    }
+                    utf16_chars.push(val);
+                    i += 2;
+                }
+                if let Ok(u_str) = String::from_utf16(&utf16_chars) {
+                    if !u_str.trim().is_empty() {
+                        target_path = Some(u_str.trim().to_string());
+                    }
+                }
+            }
+        }
+
+        cursor += link_info_size;
     }
 
     let read_string_data = |cursor: &mut usize| -> Option<String> {
@@ -222,14 +244,15 @@ pub fn resolve_shortcut<P: AsRef<Path>>(lnk_path: P) -> Result<InferredGameMetad
             let slice = &bytes[*cursor..*cursor + byte_count];
             *cursor += byte_count;
             let u16_chars: Vec<u16> = slice
-                .chunks_exact(2)
-                .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|&[c0, c1]| u16::from_le_bytes([c0, c1]))
                 .collect();
             String::from_utf16(&u16_chars).ok()
+        } else if *cursor + char_count > bytes.len() {
+            None
         } else {
-            if *cursor + char_count > bytes.len() {
-                return None;
-            }
             let slice = &bytes[*cursor..*cursor + char_count];
             *cursor += char_count;
             String::from_utf8(slice.to_vec()).ok()

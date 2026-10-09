@@ -648,15 +648,11 @@ impl Database {
             // Live status verification for executable/shortcut files:
             // If action is Executable or Shortcut and path does not exist, mark as Missing
             match &game.launch_action {
-                LaunchAction::Executable { path, .. } => {
-                    if !Path::new(path).exists() {
-                        game.status = GameStatus::Missing;
-                    }
+                LaunchAction::Executable { path, .. } if !Path::new(path).exists() => {
+                    game.status = GameStatus::Missing;
                 }
-                LaunchAction::Shortcut { target, .. } => {
-                    if !Path::new(target).exists() {
-                        game.status = GameStatus::Missing;
-                    }
+                LaunchAction::Shortcut { target, .. } if !Path::new(target).exists() => {
+                    game.status = GameStatus::Missing;
                 }
                 _ => {}
             }

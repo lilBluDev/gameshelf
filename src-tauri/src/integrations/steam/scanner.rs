@@ -258,8 +258,8 @@ pub fn scan_steam_library(
     disabled_libraries: &[String],
 ) -> SteamScanResult {
     let (mut libraries, mut warnings) = discover_library_folders(steam_root, disabled_libraries);
-    let mut imported_games = Vec::new();
-    let mut skipped_apps = Vec::new();
+    let mut imported_games: Vec<Game> = Vec::new();
+    let mut skipped_apps: Vec<SkippedSteamApp> = Vec::new();
 
     let now = chrono::Utc::now().to_rfc3339();
 

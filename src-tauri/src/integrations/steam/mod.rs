@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use self::filter::SteamFilterConfig;
-use self::scanner::{SteamLibraryFolder, SteamScanResult};
+pub use self::scanner::{SteamLibraryFolder, SteamScanResult};
 use crate::db::Database;
 use crate::error::{AppError, AppResult};
 

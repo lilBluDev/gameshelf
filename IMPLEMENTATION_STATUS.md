@@ -5,8 +5,8 @@
 - **pnpm**: v12.10.1 (installed at `C:\Users\ASUS\AppData\Roaming\npm\pnpm.cmd`)
 - **Rust Toolchain**: rustc 1.99.0 / cargo 1.99.0 / rustfmt 1.10.0 / clippy 0.1.99 (`stable-x86_64-pc-windows-msvc` installed via Rustup)
 - **WebView2 Runtime**: Installed at `C:\Program Files (x86)\Microsoft\EdgeWebView\Application`
-- **Visual Studio C++ Build Tools**: Missing on host machine (linker `link.exe` and Windows SDK `.lib` files not found; requires elevated admin rights to install via Visual Studio Installer).
-- **Security Policy**: Windows Defender Application Control (WDAC) / Smart App Control is enforced, blocking unsigned toolchains executed from user directories. Only Microsoft-signed installations (such as Visual Studio Build Tools via installer) are permitted.
+- **Visual Studio C++ Build Tools**: Installed (`link.exe` and Windows SDK libraries detected and verified via MSVC toolchain).
+- **Security Policy**: Smart App Control disabled by user, allowing local Cargo build scripts and debug/release compilation to execute smoothly.
 
 ---
 
@@ -62,14 +62,14 @@
 | Frontend Unit & Integration Tests | Implemented | `src/services/steam.test.ts` & `src/App.test.tsx` 13/13 tests passed via `pnpm test` (`vitest run`) |
 | Frontend Production Build | Implemented | `pnpm build` (`tsc && vite build`) passed with zero errors, generating optimized bundle in `dist/` |
 | Rust Formatting Check | Implemented | `cargo fmt --check` passed with zero formatting diffs across all backend files |
-| Rust Compilation & Native Tests | Unverified | Host machine lacks Visual Studio C++ Build Tools (`link.exe`), preventing native binary compilation on this machine |
+| Rust Compilation & Native Tests | Implemented | `cargo test` 33/33 tests passed, `cargo clippy -- -D warnings` passed with 0 warnings |
+| Desktop App Packaging (MSI & NSIS) | Implemented | `pnpm tauri build` passed, generating `gameshelf.exe`, MSI installer (4.47 MiB), and NSIS installer (3.09 MiB) |
 
 ---
 
 ## Known limitations
-1. Host environment currently lacks MSVC C++ Build Tools (`link.exe`) and Windows SDK import libraries. While Rust code structure, dependencies, formatting, and unit tests are complete, `cargo test` and `pnpm tauri dev` require installing C++ Build Tools via the Visual Studio Installer with administrative privileges.
-2. Steam Web API ownership import, store login scraping, and non-installed games are strictly out of scope for v1.
-3. Playtime tracking, directory watchers, and store accounts are explicitly out of scope for v1.
+1. Steam Web API ownership import, store login scraping, and non-installed games are strictly out of scope for v1.
+2. Playtime tracking, directory watchers, and store accounts are explicitly out of scope for v1.
 
 ---
 

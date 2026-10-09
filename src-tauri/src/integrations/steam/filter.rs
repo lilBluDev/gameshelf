@@ -139,17 +139,16 @@ impl SteamFilterConfig {
                         };
                     }
                 }
-                "internal_tools" => {
+                "internal_tools"
                     if name_lower == "steamvr"
                         || name_lower.ends_with(" tool")
-                        || name_lower.ends_with(" tools")
-                    {
-                        return FilterResult {
-                            is_filtered: true,
-                            matched_rule_id: Some(rule.id.clone()),
-                            reason: Some(format!("Matches rule: {}", rule.name)),
-                        };
-                    }
+                        || name_lower.ends_with(" tools") =>
+                {
+                    return FilterResult {
+                        is_filtered: true,
+                        matched_rule_id: Some(rule.id.clone()),
+                        reason: Some(format!("Matches rule: {}", rule.name)),
+                    };
                 }
                 _ => {}
             }

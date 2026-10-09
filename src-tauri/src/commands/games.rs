@@ -97,7 +97,7 @@ pub async fn inspect_file(file_path: String) -> AppResult<InspectFileResponse> {
         )));
     }
 
-    let meta: InferredGameMetadata = inspect_game_file(p).map_err(|e| AppError::Internal(e))?;
+    let meta: InferredGameMetadata = inspect_game_file(p).map_err(AppError::Internal)?;
     let normalized = normalize_path(&meta.executable_path);
 
     Ok(InspectFileResponse {

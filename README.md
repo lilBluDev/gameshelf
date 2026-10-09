@@ -98,8 +98,7 @@ cargo test
 ---
 
 ## Current Limitations
-
-- **Visual Studio C++ Build Tools**: Linking Rust executables requires Visual Studio C++ Build Tools (`link.exe` and Windows SDK) installed with admin rights.
+ 
 - **Artwork Provider**: SteamGridDB metadata and cover art fetching arrives in **Phase 4**.
 - **Emulator Manager**: Emulator profiles and ROM folder scanner arrive in **Phase 5**.
 - **Out of Scope (v1)**: Epic/GOG/EA store adapters, playtime tracking, directory watchers, telemetry, and accounts.
