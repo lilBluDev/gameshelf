@@ -21,7 +21,8 @@ pub struct Database {
 }
 
 impl Database {
-    /// Initialize SQLite database at the specified path and apply any pending migrations
+    /// Initialize SQLite database at the specified path and apply any pending migrations.
+    /// Resilient: if corruption is detected, backs up the corrupt file and re-initializes.
     pub fn new<P: AsRef<Path>>(path: P) -> AppResult<Self> {
         let path_buf = path.as_ref().to_path_buf();
         if let Some(parent) = path_buf.parent() {
@@ -29,28 +30,125 @@ impl Database {
         }
 
         info!(path = ?path_buf, "Opening SQLite database");
+
+        match Self::open_and_migrate(&path_buf) {
+            Ok(db) => Ok(db),
+            Err(err) => {
+                let err_str = err.to_string().to_lowercase();
+                if err_str.contains("corrupt")
+                    || err_str.contains("malformed")
+                    || err_str.contains("not a database")
+                {
+                    tracing::error!(
+                        error = ?err,
+                        path = ?path_buf,
+                        "Corrupted SQLite database detected! Backing up and creating fresh database."
+                    );
+                    Self::backup_corrupt_db(&path_buf)?;
+                    Self::open_and_migrate(&path_buf)
+                } else {
+                    Err(err)
+                }
+            }
+        }
+    }
+
+    fn open_and_migrate(path_buf: &Path) -> AppResult<Self> {
         let mut raw_conn = Connection::open_with_flags(
-            &path_buf,
+            path_buf,
             OpenFlags::SQLITE_OPEN_READ_WRITE
                 | OpenFlags::SQLITE_OPEN_CREATE
                 | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )?;
 
-        // Enable WAL mode and foreign keys for high-performance concurrent local-first reads
         raw_conn.execute_batch(
             "PRAGMA journal_mode = WAL;
              PRAGMA foreign_keys = ON;
              PRAGMA busy_timeout = 5000;",
         )?;
 
+        // Verify quick integrity check
+        let check: String = raw_conn.query_row("PRAGMA quick_check;", [], |r| r.get(0))?;
+        if check != "ok" {
+            return Err(AppError::Database(rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CORRUPT),
+                Some(format!("Integrity check failed: {}", check)),
+            )));
+        }
+
         // Run migrations with backup support
-        migrations::run_migrations(&mut raw_conn, Some(&path_buf))?;
+        migrations::run_migrations(&mut raw_conn, Some(path_buf))?;
         Self::seed_builtin_profiles_conn(&raw_conn)?;
 
         Ok(Self {
             conn: Arc::new(Mutex::new(raw_conn)),
-            path: path_buf,
+            path: path_buf.to_path_buf(),
         })
+    }
+
+    fn backup_corrupt_db(path: &Path) -> AppResult<PathBuf> {
+        let timestamp = Utc::now().timestamp();
+        let backup_path = path.with_extension(format!("corrupt.{}.db", timestamp));
+        if path.exists() {
+            std::fs::rename(path, &backup_path)?;
+        }
+        let wal_path = path.with_extension("db-wal");
+        if wal_path.exists() {
+            let _ = std::fs::rename(
+                &wal_path,
+                path.with_extension(format!("corrupt.{}.db-wal", timestamp)),
+            );
+        }
+        let shm_path = path.with_extension("db-shm");
+        if shm_path.exists() {
+            let _ = std::fs::rename(
+                &shm_path,
+                path.with_extension(format!("corrupt.{}.db-shm", timestamp)),
+            );
+        }
+        info!(backup = ?backup_path, "Corrupt database successfully backed up");
+        Ok(backup_path)
+    }
+
+    /// Run quick integrity check
+    pub fn check_integrity(&self) -> AppResult<bool> {
+        let conn = self.conn.lock().unwrap();
+        let check: String = conn.query_row("PRAGMA quick_check;", [], |r| r.get(0))?;
+        Ok(check == "ok")
+    }
+
+    /// Retrieve total count of games
+    pub fn get_game_count(&self) -> AppResult<usize> {
+        let conn = self.conn.lock().unwrap();
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM games", [], |r| r.get(0))?;
+        Ok(count as usize)
+    }
+
+    /// Retrieve game counts tuple: (total, installed, missing, favorites)
+    pub fn get_game_stats(&self) -> AppResult<(usize, usize, usize, usize)> {
+        let conn = self.conn.lock().unwrap();
+        let total: i64 = conn.query_row("SELECT COUNT(*) FROM games", [], |r| r.get(0))?;
+        let installed: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM games WHERE status = 'Installed'",
+            [],
+            |r| r.get(0),
+        )?;
+        let missing: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM games WHERE status = 'Missing'",
+            [],
+            |r| r.get(0),
+        )?;
+        let favorites: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM games g LEFT JOIN game_overrides go ON go.game_id = g.id WHERE COALESCE(go.is_favorite, g.is_favorite) = 1",
+            [],
+            |r| r.get(0),
+        )?;
+        Ok((
+            total as usize,
+            installed as usize,
+            missing as usize,
+            favorites as usize,
+        ))
     }
 
     /// In-memory database helper for unit and integration testing
@@ -1809,5 +1907,50 @@ mod tests {
 
         let game = db.get_game_by_id(&steam_game.id).unwrap().unwrap();
         assert_eq!(game.status, GameStatus::Missing);
+    }
+
+    #[test]
+    fn test_database_corruption_recovery_and_backup() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("test_corrupt.db");
+
+        // 1. Create a corrupt non-sqlite file
+        std::fs::write(
+            &db_path,
+            b"CORRUPT DATA NOT A SQLITE DATABASE GARBAGE BYTES",
+        )
+        .unwrap();
+
+        // 2. Open via Database::new
+        let db = Database::new(&db_path).expect("Database::new should recover from corrupt file");
+
+        // 3. Verify integrity of the recovered database
+        assert!(db.check_integrity().unwrap());
+
+        // 4. Verify that a backup file was created
+        let entries: Vec<_> = std::fs::read_dir(temp_dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().to_string())
+            .collect();
+
+        assert!(
+            entries
+                .iter()
+                .any(|name| name.contains("corrupt") && name.ends_with(".db")),
+            "Expected a .corrupt.<ts>.db backup file to exist, found: {:?}",
+            entries
+        );
+    }
+
+    #[test]
+    fn test_database_check_integrity_and_stats() {
+        let db = Database::in_memory().unwrap();
+        assert!(db.check_integrity().unwrap());
+
+        let (total, installed, missing, favorites) = db.get_game_stats().unwrap();
+        assert_eq!(total, 0);
+        assert_eq!(installed, 0);
+        assert_eq!(missing, 0);
+        assert_eq!(favorites, 0);
     }
 }

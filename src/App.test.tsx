@@ -43,6 +43,12 @@ describe('GameShelf Shell & Phase 2 UI Tests', () => {
       grid_card_size: 'medium',
       steam_grid_db_configured: false,
       close_to_tray: false,
+      minimize_to_tray: false,
+      launch_on_startup: false,
+      onboarding_completed: true,
+      accent_color: '#7C6CFF',
+      reduced_motion: 'system',
+      card_density: 'comfortable',
     });
   });
 

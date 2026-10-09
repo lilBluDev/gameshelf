@@ -13,6 +13,8 @@ export interface AppInfo {
 export type ThemeMode = 'dark' | 'light' | 'system';
 export type ViewMode = 'grid' | 'list';
 export type CardSize = 'small' | 'medium' | 'large';
+export type ReducedMotionMode = 'system' | 'always' | 'never';
+export type CardDensity = 'comfortable' | 'compact';
 
 export interface AppSettings {
   theme: ThemeMode;
@@ -20,6 +22,12 @@ export interface AppSettings {
   grid_card_size: CardSize;
   steam_grid_db_configured: boolean;
   close_to_tray: boolean;
+  minimize_to_tray: boolean;
+  launch_on_startup: boolean;
+  onboarding_completed: boolean;
+  accent_color: string;
+  reduced_motion: ReducedMotionMode;
+  card_density: CardDensity;
 }
 
 export interface SetSettingPayload {

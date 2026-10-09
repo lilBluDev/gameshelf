@@ -394,6 +394,70 @@ pub fn launch_uri(uri: &str) -> crate::error::AppResult<()> {
     Ok(())
 }
 
+/// Check if launch on Windows startup is enabled in HKCU Run registry
+pub fn is_autostart_enabled() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        let output = std::process::Command::new("reg")
+            .args([
+                "query",
+                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                "/v",
+                "GameShelf",
+            ])
+            .output();
+
+        match output {
+            Ok(out) => out.status.success(),
+            Err(_) => false,
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
+    }
+}
+
+/// Set or clear launch on Windows startup in HKCU Run registry
+pub fn set_autostart_enabled(enabled: bool) -> crate::error::AppResult<()> {
+    #[cfg(target_os = "windows")]
+    {
+        if enabled {
+            let current_exe = std::env::current_exe()?;
+            let exe_str = current_exe.to_string_lossy().to_string();
+            let status = std::process::Command::new("reg")
+                .args([
+                    "add",
+                    r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                    "/v",
+                    "GameShelf",
+                    "/t",
+                    "REG_SZ",
+                    "/d",
+                    &format!("\"{}\"", exe_str),
+                    "/f",
+                ])
+                .status()?;
+            if !status.success() {
+                return Err(crate::error::AppError::Internal(
+                    "Failed to register GameShelf autostart in Windows registry".to_string(),
+                ));
+            }
+        } else {
+            let _ = std::process::Command::new("reg")
+                .args([
+                    "delete",
+                    r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                    "/v",
+                    "GameShelf",
+                    "/f",
+                ])
+                .status();
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

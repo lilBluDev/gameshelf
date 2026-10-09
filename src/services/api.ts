@@ -65,23 +65,45 @@ function fallbackHandler<T>(cmd: string, args?: Record<string, unknown>): Promis
       const savedTheme = (localStorage.getItem('gameshelf_theme') as 'dark' | 'light' | 'system') || 'dark';
       const savedView = (localStorage.getItem('gameshelf_view') as 'grid' | 'list') || 'grid';
       const savedSize = (localStorage.getItem('gameshelf_card_size') as 'small' | 'medium' | 'large') || 'medium';
+      const savedClose = localStorage.getItem('gameshelf_close_to_tray') === 'true';
+      const savedMin = localStorage.getItem('gameshelf_minimize_to_tray') === 'true';
+      const savedStartup = localStorage.getItem('gameshelf_launch_on_startup') === 'true';
+      const savedOnboarding = localStorage.getItem('gameshelf_onboarding_completed') === 'true';
+      const savedAccent = localStorage.getItem('gameshelf_accent_color') || '#7C6CFF';
+      const savedMotion = (localStorage.getItem('gameshelf_reduced_motion') as 'system' | 'always' | 'never') || 'system';
+      const savedDensity = (localStorage.getItem('gameshelf_card_density') as 'comfortable' | 'compact') || 'comfortable';
+
       return Promise.resolve({
         theme: savedTheme,
         default_view_mode: savedView,
         grid_card_size: savedSize,
         steam_grid_db_configured: false,
-        close_to_tray: false,
+        close_to_tray: savedClose,
+        minimize_to_tray: savedMin,
+        launch_on_startup: savedStartup,
+        onboarding_completed: savedOnboarding,
+        accent_color: savedAccent,
+        reduced_motion: savedMotion,
+        card_density: savedDensity,
       } as unknown as T);
     }
 
     case 'set_setting': {
       const payload = args?.payload as SetSettingPayload;
       if (payload) {
-        if (payload.key === 'theme') localStorage.setItem('gameshelf_theme', payload.value);
-        if (payload.key === 'default_view_mode') localStorage.setItem('gameshelf_view', payload.value);
-        if (payload.key === 'grid_card_size') localStorage.setItem('gameshelf_card_size', payload.value);
+        localStorage.setItem(`gameshelf_${payload.key}`, payload.value);
       }
       return Promise.resolve(true as unknown as T);
+    }
+
+    case 'get_diagnostic_summary': {
+      return Promise.resolve(
+        `### GameShelf Diagnostic Summary\n- **App Version**: 0.1.0\n- **Platform**: Windows 11\n- **Database Schema**: v5 (integrity check: PASSED)\n- **Library Games**: Total: ${previewGames.length}\n- **Steam Integration**: Detected: Yes\n` as unknown as T
+      );
+    }
+
+    case 'open_logs': {
+      return Promise.resolve(undefined as unknown as T);
     }
 
     case 'list_games': {
@@ -403,4 +425,7 @@ export const api = {
   updateSteamFilterRule: (ruleId: string, enabled: boolean) =>
     callTauri<void>('update_steam_filter_rule', { ruleId, enabled }),
   includeSkippedSteamApp: (appId: number) => callTauri<void>('include_skipped_steam_app', { appId }),
+  getDiagnosticSummary: () => callTauri<string>('get_diagnostic_summary'),
+  openLogs: () => callTauri<void>('open_logs'),
 };
+

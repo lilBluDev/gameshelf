@@ -27,6 +27,26 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenScanFolder,
   onOpenScanRoms,
 }) => {
+  const [localQuery, setLocalQuery] = React.useState(searchQuery);
+
+  React.useEffect(() => {
+    setLocalQuery(searchQuery);
+  }, [searchQuery]);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localQuery !== searchQuery) {
+        onSearchChange(localQuery);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [localQuery, searchQuery, onSearchChange]);
+
+  const handleClear = () => {
+    setLocalQuery('');
+    onSearchChange('');
+  };
+
   return (
     <div className="h-14 border-b border-border bg-bg/50 backdrop-blur px-6 flex items-center justify-between gap-4 select-none flex-shrink-0">
       {/* Search Input */}
@@ -34,15 +54,18 @@ export const TopBar: React.FC<TopBarProps> = ({
         <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         <input
           type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
+          value={localQuery}
+          onChange={(e) => setLocalQuery(e.target.value)}
           placeholder="Search title, developer, tags..."
-          className="w-full bg-surface border border-border rounded-control pl-9 pr-8 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent transition-colors"
+          aria-label="Search library"
+          className="w-full bg-surface border border-border rounded-control pl-9 pr-8 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors"
         />
-        {searchQuery && (
+        {localQuery && (
           <button
-            onClick={() => onSearchChange('')}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-text p-0.5"
+            onClick={handleClear}
+            aria-label="Clear search query"
+            title="Clear search"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-text p-0.5 focus:outline-none focus:ring-1 focus:ring-accent rounded"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -59,12 +82,13 @@ export const TopBar: React.FC<TopBarProps> = ({
         <div className="h-4 w-px bg-border" />
 
         {/* Sort selector */}
-        <div className="flex items-center gap-1.5 bg-surface border border-border rounded-control px-2.5 py-1 text-xs text-text">
+        <div className="flex items-center gap-1.5 bg-surface border border-border rounded-control px-2.5 py-1 text-xs text-text focus-within:border-accent focus-within:ring-1 focus-within:ring-accent">
           <ArrowUpDown className="w-3.5 h-3.5 text-muted" />
           <span className="text-muted text-[11px]">Sort:</span>
           <select
             value={sortBy}
             onChange={(e) => onSortByChange(e.target.value as SortField)}
+            aria-label="Sort library games"
             className="bg-transparent text-text border-none focus:outline-none text-xs cursor-pointer"
           >
             <option value="title" className="bg-surface text-text">Title (A-Z)</option>
@@ -80,7 +104,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={() => onViewModeChange('grid')}
             title="Grid View"
-            className={`p-1.5 rounded-control transition-colors ${
+            aria-label="Switch to grid view"
+            className={`p-1.5 rounded-control transition-colors focus:outline-none focus:ring-1 focus:ring-accent ${
               viewMode === 'grid'
                 ? 'bg-surface-2 text-text shadow-sm'
                 : 'text-muted hover:text-text'
@@ -91,7 +116,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={() => onViewModeChange('list')}
             title="List View"
-            className={`p-1.5 rounded-control transition-colors ${
+            aria-label="Switch to list view"
+            className={`p-1.5 rounded-control transition-colors focus:outline-none focus:ring-1 focus:ring-accent ${
               viewMode === 'list'
                 ? 'bg-surface-2 text-text shadow-sm'
                 : 'text-muted hover:text-text'

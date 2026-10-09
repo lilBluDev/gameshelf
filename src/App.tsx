@@ -10,6 +10,7 @@ import { AddGameModal } from './components/AddGameModal';
 import { ScanFolderModal } from './components/ScanFolderModal';
 import { ScanRomsModal } from './components/ScanRomsModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
+import { OnboardingModal } from './components/OnboardingModal';
 import { api } from './services/api';
 import { AppInfo, AppSettings, CommandError, SortField, ViewMode } from './types/api';
 import { Game } from './types/models';
@@ -22,6 +23,12 @@ export const App: React.FC = () => {
     grid_card_size: 'medium',
     steam_grid_db_configured: false,
     close_to_tray: false,
+    minimize_to_tray: false,
+    launch_on_startup: false,
+    onboarding_completed: false,
+    accent_color: '#7C6CFF',
+    reduced_motion: 'system',
+    card_density: 'comfortable',
   });
 
   const [games, setGames] = useState<Game[]>([]);
@@ -30,8 +37,10 @@ export const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('title');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [renderLimit, setRenderLimit] = useState(60);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isAddGameOpen, setIsAddGameOpen] = useState(false);
   const [isScanFolderOpen, setIsScanFolderOpen] = useState(false);
   const [scanFolderInitialPath, setScanFolderInitialPath] = useState<string | undefined>(undefined);
@@ -83,6 +92,9 @@ export const App: React.FC = () => {
         if (fetchedSettings) {
           setSettings(fetchedSettings);
           setViewMode(fetchedSettings.default_view_mode);
+          if (!fetchedSettings.onboarding_completed) {
+            setIsOnboardingOpen(true);
+          }
         }
 
         const res = await api.listGames({ filter: 'all' });
@@ -119,6 +131,23 @@ export const App: React.FC = () => {
       applyTheme(settings.theme === 'dark');
     }
   }, [settings.theme]);
+
+  // Sync accent color with root CSS custom property
+  useEffect(() => {
+    if (settings.accent_color) {
+      document.documentElement.style.setProperty('--color-accent', settings.accent_color);
+    }
+  }, [settings.accent_color]);
+
+  // Sync reduced motion mode
+  useEffect(() => {
+    const root = document.documentElement;
+    if (settings.reduced_motion === 'always') {
+      root.classList.add('reduce-motion');
+    } else {
+      root.classList.remove('reduce-motion');
+    }
+  }, [settings.reduced_motion]);
 
   // Handle setting updates
   const handleUpdateSetting = async (key: string, value: string) => {
@@ -212,6 +241,22 @@ export const App: React.FC = () => {
     return result;
   }, [games, activeFilter, searchQuery, sortBy]);
 
+  // Reset windowed rendering on search / filter / sort change
+  useEffect(() => {
+    setRenderLimit(60);
+  }, [searchQuery, activeFilter, sortBy]);
+
+  const handleScroll = (e: React.UIEvent<HTMLElement>) => {
+    const target = e.currentTarget;
+    if (target.scrollHeight - target.scrollTop - target.clientHeight < 350) {
+      setRenderLimit((prev) => Math.min(prev + 40, visibleGames.length));
+    }
+  };
+
+  const renderedGames = useMemo(() => {
+    return visibleGames.slice(0, renderLimit);
+  }, [visibleGames, renderLimit]);
+
   // Dynamic grid column sizing based on settings.grid_card_size
   const gridClasses = useMemo(() => {
     switch (settings.grid_card_size) {
@@ -289,7 +334,7 @@ export const App: React.FC = () => {
           />
 
           {/* Games Display Area */}
-          <main className="flex-1 overflow-y-auto p-6">
+          <main className="flex-1 overflow-y-auto p-6" onScroll={handleScroll}>
             {loading ? (
               <div className="flex items-center justify-center h-full text-xs text-muted">
                 Loading library...
@@ -307,7 +352,7 @@ export const App: React.FC = () => {
               />
             ) : viewMode === 'grid' ? (
               <div className={gridClasses}>
-                {visibleGames.map((game) => (
+                {renderedGames.map((game) => (
                   <GameCard
                     key={game.id}
                     game={game}
@@ -316,10 +361,15 @@ export const App: React.FC = () => {
                     viewMode="grid"
                   />
                 ))}
+                {renderLimit < visibleGames.length && (
+                  <div className="col-span-full py-3 text-center text-xs text-muted font-mono">
+                    Showing {renderedGames.length} of {visibleGames.length} games
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex flex-col gap-2 max-w-4xl mx-auto">
-                {visibleGames.map((game) => (
+                {renderedGames.map((game) => (
                   <GameCard
                     key={game.id}
                     game={game}
@@ -328,6 +378,11 @@ export const App: React.FC = () => {
                     viewMode="list"
                   />
                 ))}
+                {renderLimit < visibleGames.length && (
+                  <div className="py-3 text-center text-xs text-muted font-mono">
+                    Showing {renderedGames.length} of {visibleGames.length} games
+                  </div>
+                )}
               </div>
             )}
           </main>
@@ -391,7 +446,19 @@ export const App: React.FC = () => {
         onUpdateSetting={handleUpdateSetting}
         onRefreshGames={handleRefreshGames}
         onOpenScanFolder={handleOpenScanFolder}
-        onOpenScanRoms={(pId) => handleOpenScanRoms(pId)}
+        onOpenScanRoms={handleOpenScanRoms}
+      />
+
+      {/* First-Launch Onboarding Wizard (Phase 7) */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onComplete={() => {
+          setIsOnboardingOpen(false);
+          setSettings((prev) => ({ ...prev, onboarding_completed: true }));
+        }}
+        onOpenScanFolder={handleOpenScanFolder}
+        onOpenScanRoms={handleOpenScanRoms}
+        onRefreshGames={handleRefreshGames}
       />
 
       {/* Toast Messages */}

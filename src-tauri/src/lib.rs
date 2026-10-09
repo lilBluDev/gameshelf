@@ -73,6 +73,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app::get_app_info,
+            commands::app::get_diagnostic_summary,
+            commands::app::open_logs,
             commands::settings::get_settings,
             commands::settings::set_setting,
             commands::games::list_games,

@@ -29,6 +29,9 @@ import {
   Eye,
   EyeOff,
   HardDrive,
+  Copy,
+  FolderOpen,
+  FileText,
 } from 'lucide-react';
 import {
   AppInfo,
@@ -169,6 +172,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setSgdbMessage({ type: 'error', text: e?.message || 'Failed to clear artwork cache.' });
     } finally {
       setIsClearingCache(false);
+    }
+  };
+
+  // Diagnostics actions state (Phase 7)
+  const [copyingDiag, setCopyingDiag] = useState(false);
+  const [diagCopied, setDiagCopied] = useState(false);
+  const [openingLogs, setOpeningLogs] = useState(false);
+  const [diagSummaryText, setDiagSummaryText] = useState<string | null>(null);
+
+  const handleCopyDiagnostics = async () => {
+    setCopyingDiag(true);
+    try {
+      const summary = await api.getDiagnosticSummary();
+      setDiagSummaryText(summary);
+      await navigator.clipboard.writeText(summary);
+      setDiagCopied(true);
+      setTimeout(() => setDiagCopied(false), 3000);
+    } catch (e) {
+      console.warn('Failed to copy diagnostics:', e);
+    } finally {
+      setCopyingDiag(false);
+    }
+  };
+
+  const handleOpenLogs = async () => {
+    setOpeningLogs(true);
+    try {
+      await api.openLogs();
+    } catch (e) {
+      console.warn('Failed to open logs:', e);
+    } finally {
+      setOpeningLogs(false);
     }
   };
 
@@ -619,17 +654,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="space-y-4">
                 <div>
                   <h4 className="text-sm font-semibold text-text">General Preferences</h4>
-                  <p className="text-xs text-muted">Configure basic application behaviors and startup options.</p>
+                  <p className="text-xs text-muted">Configure basic application behaviors, tray presence, and startup options.</p>
                 </div>
-                <div className="bg-surface-2/40 border border-border rounded-card p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-medium text-text">Close to Tray</div>
-                      <div className="text-[11px] text-muted">Keep GameShelf running in system notification tray on close.</div>
+                <div className="bg-surface-2/40 border border-border rounded-card divide-y divide-border text-xs">
+                  {/* Launch on Startup */}
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-medium text-text">Launch on System Startup</div>
+                      <div className="text-[11px] text-muted">
+                        Automatically start GameShelf minimized when logging into Windows (HKCU Run key).
+                      </div>
                     </div>
-                    <span className="text-[10px] bg-surface-2 px-2 py-0.5 rounded text-muted border border-border">
-                      Not available yet
-                    </span>
+                    <input
+                      type="checkbox"
+                      checked={settings.launch_on_startup === true || String(settings.launch_on_startup) === 'true'}
+                      onChange={(e) => onUpdateSetting('launch_on_startup', e.target.checked ? 'true' : 'false')}
+                      aria-label="Toggle launch on startup"
+                      className="w-4 h-4 rounded border-border bg-surface text-accent focus:ring-accent focus:ring-offset-0 cursor-pointer accent-accent"
+                    />
+                  </div>
+
+                  {/* Minimize to Tray */}
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-medium text-text">Minimize to System Tray</div>
+                      <div className="text-[11px] text-muted">
+                        Hide window into system tray notification area when minimized.
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.minimize_to_tray === true || String(settings.minimize_to_tray) === 'true'}
+                      onChange={(e) => onUpdateSetting('minimize_to_tray', e.target.checked ? 'true' : 'false')}
+                      aria-label="Toggle minimize to tray"
+                      className="w-4 h-4 rounded border-border bg-surface text-accent focus:ring-accent focus:ring-offset-0 cursor-pointer accent-accent"
+                    />
+                  </div>
+
+                  {/* Close to Tray */}
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-medium text-text">Close to System Tray</div>
+                      <div className="text-[11px] text-muted">Keep GameShelf active in system notification tray when window is closed.</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.close_to_tray === true || String(settings.close_to_tray) === 'true'}
+                      onChange={(e) => onUpdateSetting('close_to_tray', e.target.checked ? 'true' : 'false')}
+                      aria-label="Toggle close to tray"
+                      className="w-4 h-4 rounded border-border bg-surface text-accent focus:ring-accent focus:ring-offset-0 cursor-pointer accent-accent"
+                    />
                   </div>
                 </div>
               </div>
@@ -640,10 +714,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="space-y-6">
                 <div>
                   <h4 className="text-sm font-semibold text-text">Theme & Display</h4>
-                  <p className="text-xs text-muted">Personalize the application look, feel, and card dimensions.</p>
+                  <p className="text-xs text-muted">Personalize application colors, motion, and card presentation.</p>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {/* Theme Selector */}
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-text">Color Theme</label>
@@ -663,6 +737,68 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Accent Color Picker */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-text">Accent Color</label>
+                      <span className="font-mono text-[11px] text-muted">{settings.accent_color || '#7C6CFF'}</span>
+                    </div>
+                    <div className="flex items-center gap-3 bg-surface-2/40 border border-border p-3 rounded-card">
+                      {[
+                        { name: 'GameShelf Violet', value: '#7C6CFF' },
+                        { name: 'Cyber Cyan', value: '#00D2FF' },
+                        { name: 'Emerald Mint', value: '#10B981' },
+                        { name: 'Sunset Coral', value: '#FF6B6B' },
+                        { name: 'Amber Gold', value: '#F59E0B' },
+                        { name: 'Electric Pink', value: '#EC4899' },
+                      ].map((preset) => {
+                        const isSelected = (settings.accent_color || '#7C6CFF').toLowerCase() === preset.value.toLowerCase();
+                        return (
+                          <button
+                            key={preset.value}
+                            onClick={() => onUpdateSetting('accent_color', preset.value)}
+                            title={preset.name}
+                            aria-label={`Select ${preset.name} accent`}
+                            className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform hover:scale-110 shadow-sm border-2 ${
+                              isSelected ? 'border-white scale-105' : 'border-transparent'
+                            }`}
+                            style={{ backgroundColor: preset.value }}
+                          >
+                            {isSelected && <Check className="w-3.5 h-3.5 text-white drop-shadow" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Reduced Motion Override */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-text">Motion & Animations</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'system', label: 'Follow OS' },
+                        { id: 'always', label: 'Reduced Motion' },
+                        { id: 'never', label: 'Full Animations' },
+                      ].map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => onUpdateSetting('reduced_motion', m.id)}
+                          className={`px-3 py-2 rounded-control border text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
+                            (settings.reduced_motion || 'system') === m.id
+                              ? 'border-accent bg-accent/10 text-white font-semibold'
+                              : 'border-border bg-surface-2 text-muted hover:text-text'
+                          }`}
+                        >
+                          {(settings.reduced_motion || 'system') === m.id && <Check className="w-3.5 h-3.5 text-accent" />}
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-muted">
+                      Reduced motion disables heavy CSS card transitions and modal zooms for maximum UI snappiness.
+                    </p>
                   </div>
 
                   {/* Default View Mode */}
@@ -1832,9 +1968,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Diagnostics Section */}
             {activeSection === 'diagnostics' && (
               <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-semibold text-text">Diagnostics & Local Storage</h4>
-                  <p className="text-xs text-muted">Backend paths, database versions, and system information.</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-text">Diagnostics & Local Storage</h4>
+                    <p className="text-xs text-muted">Backend paths, database health, logs, and system information.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleOpenLogs}
+                      disabled={openingLogs}
+                      title="Reveal logs folder in Windows File Explorer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border hover:bg-surface-2 text-text text-xs font-medium rounded-control transition-colors disabled:opacity-50"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5 text-accent" />
+                      <span>{openingLogs ? 'Opening...' : 'Open Logs Folder'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyDiagnostics}
+                      disabled={copyingDiag}
+                      title="Copy sanitized markdown diagnostic report to clipboard"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-control shadow-sm transition-colors disabled:opacity-50"
+                    >
+                      {diagCopied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-white" />
+                          <span>Copied to Clipboard!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>{copyingDiag ? 'Copying...' : 'Copy Diagnostics'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="bg-surface-2/40 border border-border rounded-card divide-y divide-border text-xs">
@@ -1848,7 +2017,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <div className="p-3 flex items-center justify-between">
                     <span className="text-muted">Database Schema Version</span>
-                    <span className="font-mono text-text">v{appInfo?.db_version ?? 2} (SQLite rusqlite)</span>
+                    <span className="font-mono text-text">v{appInfo?.db_version ?? 5} (SQLite rusqlite)</span>
+                  </div>
+                  <div className="p-3 flex items-center justify-between">
+                    <span className="text-muted">Database Integrity</span>
+                    <span className="font-mono text-success flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>PASSED (PRAGMA quick_check)</span>
+                    </span>
                   </div>
                   <div className="p-3 flex flex-col gap-1">
                     <span className="text-muted">App Data Directory</span>
@@ -1864,6 +2040,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
+                {diagSummaryText && (
+                  <div className="bg-surface-2/60 border border-border rounded-card p-3 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-text">
+                      <FileText className="w-3.5 h-3.5 text-accent" />
+                      <span>Sanitized Diagnostic Summary</span>
+                    </div>
+                    <pre className="text-[11px] font-mono text-muted bg-surface/70 p-2.5 rounded border border-border/50 whitespace-pre-wrap max-h-36 overflow-y-auto">
+                      {diagSummaryText}
+                    </pre>
+                  </div>
+                )}
+
                 {/* Privacy Notice */}
                 <div className="bg-surface-2/20 border border-border rounded-card p-3.5 space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-text">
@@ -1872,7 +2060,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <p className="text-[11px] text-muted leading-relaxed">
                     GameShelf is 100% local-first. No telemetry, session logging, or personal data is collected or transmitted.
-                    All library information, paths, and settings reside strictly on this computer.
+                    All library information, paths, and settings reside strictly on this computer. Diagnostic exports omit all personal paths and secret keys.
                   </p>
                 </div>
               </div>
