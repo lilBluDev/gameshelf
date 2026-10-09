@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, LayoutGrid, List, Plus, ArrowUpDown, X } from 'lucide-react';
+import { Search, LayoutGrid, List, Plus, ArrowUpDown, X, FolderSearch } from 'lucide-react';
 import { SortField, ViewMode } from '../types/api';
 
 interface TopBarProps {
@@ -11,6 +11,7 @@ interface TopBarProps {
   onSortByChange: (sort: SortField) => void;
   totalGames: number;
   onOpenAddGame: () => void;
+  onOpenScanFolder?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -22,6 +23,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onSortByChange,
   totalGames,
   onOpenAddGame,
+  onOpenScanFolder,
 }) => {
   return (
     <div className="h-14 border-b border-border bg-bg/50 backdrop-blur px-6 flex items-center justify-between gap-4 select-none flex-shrink-0">
@@ -97,7 +99,19 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
         </div>
 
-        {/* Add Game Button (Enabled in Phase 2) */}
+        {/* Scan Folder Button (Phase 4) */}
+        {onOpenScanFolder && (
+          <button
+            onClick={onOpenScanFolder}
+            title="Scan Folder for Games"
+            className="flex items-center gap-1.5 bg-surface border border-border hover:bg-surface-2 text-text rounded-control px-3 py-1.5 text-xs font-medium transition-all"
+          >
+            <FolderSearch className="w-3.5 h-3.5 text-accent" />
+            <span>Scan Folder</span>
+          </button>
+        )}
+
+        {/* Add Game Button (Phase 2) */}
         <button
           onClick={onOpenAddGame}
           title="Add Game Executable or Shortcut"

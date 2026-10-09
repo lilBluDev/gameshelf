@@ -1,12 +1,19 @@
 import React from 'react';
-import { Gamepad2, SearchX } from 'lucide-react';
+import { Gamepad2, SearchX, Plus, FolderSearch } from 'lucide-react';
 
 interface EmptyStateProps {
   isSearch: boolean;
   onClearSearch?: () => void;
+  onOpenAddGame?: () => void;
+  onOpenScanFolder?: () => void;
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({ isSearch, onClearSearch }) => {
+export const EmptyState: React.FC<EmptyStateProps> = ({
+  isSearch,
+  onClearSearch,
+  onOpenAddGame,
+  onOpenScanFolder,
+}) => {
   if (isSearch) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center h-full">
@@ -36,18 +43,31 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ isSearch, onClearSearch 
       </div>
       <h3 className="text-lg font-semibold text-text mb-2">Your shelf is empty</h3>
       <p className="text-xs text-muted leading-relaxed mb-6">
-        GameShelf stores your games in a fast, local-first SQLite database. Scanner support for Steam, standalone executables, and emulator ROMs arrives in Phase 2.
+        GameShelf discovers your installed PC games, Steam titles, and DRM-free directories with safe, local-first performance.
       </p>
 
-      <div className="w-full bg-surface-2/60 border border-border rounded-card p-3 text-left">
-        <div className="text-[11px] font-semibold text-text mb-1 flex items-center gap-1.5">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent" />
-          Next Phase: Game Import & Scanner
-        </div>
-        <p className="text-[11px] text-muted leading-normal">
-          In Phase 2, automated folder scanning, Steam library detection, and manual executable linking will populate this grid.
-        </p>
+      {/* Action buttons */}
+      <div className="flex flex-col sm:flex-row items-center gap-3 w-full justify-center">
+        {onOpenScanFolder && (
+          <button
+            onClick={onOpenScanFolder}
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-semibold shadow-lg shadow-accent/20 transition-all"
+          >
+            <FolderSearch className="w-4 h-4" />
+            <span>Scan Folder for Games</span>
+          </button>
+        )}
+        {onOpenAddGame && (
+          <button
+            onClick={onOpenAddGame}
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-lg bg-surface border border-border hover:bg-surface-2 text-text text-xs font-medium transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Single Game</span>
+          </button>
+        )}
       </div>
     </div>
   );
 };
+

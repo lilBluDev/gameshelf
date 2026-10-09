@@ -22,9 +22,14 @@ pub const MIGRATIONS: &[Migration] = &[
         description: "Add normalized path and last_launched_at tracking",
         sql: include_str!("../../migrations/002_phase2_manual_library.sql"),
     },
+    Migration {
+        version: 3,
+        description: "Add scan_sources table for folder scanner management",
+        sql: include_str!("../../migrations/003_phase4_folder_scanner.sql"),
+    },
 ];
 
-pub const LATEST_VERSION: u32 = 2;
+pub const LATEST_VERSION: u32 = 3;
 
 /// Get the highest applied migration version. Returns 0 if no migrations have been applied.
 pub fn get_current_version(conn: &Connection) -> AppResult<u32> {

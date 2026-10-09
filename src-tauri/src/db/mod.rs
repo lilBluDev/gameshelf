@@ -2,12 +2,13 @@ pub mod migrations;
 pub mod schema;
 
 use chrono::Utc;
-use rusqlite::{params, Connection, OpenFlags};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tracing::info;
 
 use crate::error::{AppError, AppResult};
+use crate::scanner::{ConfidenceLevel, ScanCandidate, ScanSource};
 use schema::{Game, GameOverrides, GameStatus, LaunchAction, SourceKind};
 
 #[derive(Clone)]
@@ -521,6 +522,240 @@ impl Database {
                     if !active_app_ids.contains(&app_id) {
                         to_mark.push(id);
                     }
+                }
+            }
+        }
+
+        for id in to_mark {
+            conn.execute(
+                "UPDATE games SET status = 'Missing', updated_at = ?1 WHERE id = ?2",
+                params![now, id],
+            )?;
+            count += 1;
+        }
+
+        Ok(count)
+    }
+
+    /// Add or update a folder scan source
+    pub fn add_scan_source(&self, path: &str, depth: usize) -> AppResult<ScanSource> {
+        let norm = crate::platform::windows::normalize_path(path);
+        let conn = self.conn.lock().unwrap();
+        let now = Utc::now().to_rfc3339();
+
+        let existing: Option<String> = conn
+            .query_row(
+                "SELECT id FROM scan_sources WHERE normalized_path = ?1",
+                params![norm],
+                |r| r.get(0),
+            )
+            .optional()?;
+
+        if let Some(id) = existing {
+            conn.execute(
+                "UPDATE scan_sources SET path = ?1, depth = ?2, updated_at = ?3 WHERE id = ?4",
+                params![path, depth as i64, now, id],
+            )?;
+            return Ok(ScanSource {
+                id,
+                path: path.to_string(),
+                normalized_path: norm,
+                depth,
+                last_scanned_at: None,
+                game_count: 0,
+                created_at: now.clone(),
+                updated_at: now,
+            });
+        }
+
+        let id = uuid::Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO scan_sources (id, path, normalized_path, depth, game_count, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?5)",
+            params![id, path, norm, depth as i64, now],
+        )?;
+
+        Ok(ScanSource {
+            id,
+            path: path.to_string(),
+            normalized_path: norm,
+            depth,
+            last_scanned_at: None,
+            game_count: 0,
+            created_at: now.clone(),
+            updated_at: now,
+        })
+    }
+
+    /// List all configured folder scan sources
+    pub fn list_scan_sources(&self) -> AppResult<Vec<ScanSource>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, path, normalized_path, depth, last_scanned_at, game_count, created_at, updated_at
+             FROM scan_sources ORDER BY created_at ASC",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            Ok(ScanSource {
+                id: row.get(0)?,
+                path: row.get(1)?,
+                normalized_path: row.get(2)?,
+                depth: row.get::<_, i64>(3)? as usize,
+                last_scanned_at: row.get(4)?,
+                game_count: row.get::<_, i64>(5)? as usize,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
+            })
+        })?;
+
+        let mut sources = Vec::new();
+        for r in rows {
+            sources.push(r?);
+        }
+        Ok(sources)
+    }
+
+    /// Remove a scan source record from database (does not delete games or files)
+    pub fn remove_scan_source(&self, id: &str) -> AppResult<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM scan_sources WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    /// Update stats for a scan source after a successful scan
+    pub fn update_scan_source_stats(&self, id: &str, game_count: usize) -> AppResult<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE scan_sources SET game_count = ?1, last_scanned_at = ?2, updated_at = ?2 WHERE id = ?3",
+            params![game_count as i64, now, id],
+        )?;
+        Ok(())
+    }
+
+    /// Atomically import selected folder scan candidates into library
+    pub fn import_scan_candidates(&self, candidates: &[ScanCandidate]) -> AppResult<usize> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        let now = Utc::now().to_rfc3339();
+        let mut imported_count = 0;
+
+        for candidate in candidates {
+            if !candidate.selected {
+                continue;
+            }
+
+            let norm = crate::platform::windows::normalize_path(&candidate.executable_path);
+            let launch_action = LaunchAction::Executable {
+                path: candidate.executable_path.clone(),
+                args: candidate.args.clone(),
+                working_dir: if candidate.working_dir.trim().is_empty() {
+                    None
+                } else {
+                    Some(candidate.working_dir.clone())
+                },
+                env: None,
+            };
+            let launch_action_json = serde_json::to_string(&launch_action)?;
+
+            let existing_id: Option<String> = tx
+                .query_row(
+                    "SELECT id FROM games WHERE normalized_path = ?1",
+                    params![norm],
+                    |r| r.get(0),
+                )
+                .optional()?;
+
+            if let Some(id) = existing_id {
+                tx.execute(
+                    "UPDATE games SET
+                        install_dir = ?1,
+                        launch_action = ?2,
+                        status = 'Installed',
+                        last_scanned_at = ?3,
+                        match_confidence = ?4,
+                        updated_at = ?3
+                     WHERE id = ?5",
+                    params![
+                        candidate.working_dir,
+                        launch_action_json,
+                        now,
+                        match candidate.confidence {
+                            ConfidenceLevel::High => 1.0,
+                            ConfidenceLevel::Medium => 0.7,
+                            ConfidenceLevel::Low => 0.4,
+                        },
+                        id
+                    ],
+                )?;
+            } else {
+                let id = uuid::Uuid::new_v4().to_string();
+                let sort_title = candidate.title.to_lowercase();
+                let confidence_score = match candidate.confidence {
+                    ConfidenceLevel::High => 1.0,
+                    ConfidenceLevel::Medium => 0.7,
+                    ConfidenceLevel::Low => 0.4,
+                };
+
+                tx.execute(
+                    "INSERT INTO games (
+                        id, title, sort_title, source_kind, install_dir, launch_action,
+                        status, last_scanned_at, is_favorite, is_hidden, match_confidence,
+                        provider_attribution, created_at, updated_at, normalized_path,
+                        genres, tags, user_tags
+                    ) VALUES (
+                        ?1, ?2, ?3, 'Standalone', ?4, ?5,
+                        'Installed', ?6, 0, 0, ?7,
+                        'Folder Scanner', ?6, ?6, ?8,
+                        '[]', '[]', '[]'
+                    )",
+                    params![
+                        id,
+                        candidate.title,
+                        sort_title,
+                        candidate.working_dir,
+                        launch_action_json,
+                        now,
+                        confidence_score,
+                        norm
+                    ],
+                )?;
+            }
+            imported_count += 1;
+        }
+
+        tx.commit()?;
+        Ok(imported_count)
+    }
+
+    /// Mark standalone games under source_root as Missing if their normalized path is not active
+    pub fn mark_missing_folder_games(
+        &self,
+        source_root_normalized: &str,
+        active_normalized_paths: &[String],
+    ) -> AppResult<usize> {
+        let conn = self.conn.lock().unwrap();
+        let now = Utc::now().to_rfc3339();
+        let mut count = 0;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, normalized_path FROM games WHERE source_kind = 'Standalone' AND status = 'Installed'",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            let id: String = row.get(0)?;
+            let norm_path: Option<String> = row.get(1)?;
+            Ok((id, norm_path))
+        })?;
+
+        let mut to_mark = Vec::new();
+        let root_prefix = format!("{}/", source_root_normalized.trim_end_matches('/'));
+
+        for r in rows {
+            let (id, norm_opt) = r?;
+            if let Some(norm) = norm_opt {
+                if norm.starts_with(&root_prefix) && !active_normalized_paths.contains(&norm) {
+                    to_mark.push(id);
                 }
             }
         }

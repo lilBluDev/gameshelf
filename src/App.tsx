@@ -7,6 +7,7 @@ import { GameDetailPanel } from './components/GameDetailPanel';
 import { EmptyState } from './components/EmptyState';
 import { SettingsModal } from './components/SettingsModal';
 import { AddGameModal } from './components/AddGameModal';
+import { ScanFolderModal } from './components/ScanFolderModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { api } from './services/api';
 import { AppInfo, AppSettings, CommandError, SortField, ViewMode } from './types/api';
@@ -31,7 +32,14 @@ export const App: React.FC = () => {
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddGameOpen, setIsAddGameOpen] = useState(false);
+  const [isScanFolderOpen, setIsScanFolderOpen] = useState(false);
+  const [scanFolderInitialPath, setScanFolderInitialPath] = useState<string | undefined>(undefined);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const handleOpenScanFolder = (path?: string) => {
+    setScanFolderInitialPath(path);
+    setIsScanFolderOpen(true);
+  };
 
   const addToast = (type: 'error' | 'success' | 'info', title: string, message?: string) => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -266,6 +274,7 @@ export const App: React.FC = () => {
             onSortByChange={setSortBy}
             totalGames={visibleGames.length}
             onOpenAddGame={() => setIsAddGameOpen(true)}
+            onOpenScanFolder={() => handleOpenScanFolder()}
           />
 
           {/* Games Display Area */}
@@ -281,6 +290,8 @@ export const App: React.FC = () => {
                   setSearchQuery('');
                   setActiveFilter('all');
                 }}
+                onOpenAddGame={() => setIsAddGameOpen(true)}
+                onOpenScanFolder={() => handleOpenScanFolder()}
               />
             ) : viewMode === 'grid' ? (
               <div className={gridClasses}>
@@ -335,6 +346,17 @@ export const App: React.FC = () => {
         onError={(t, m) => addToast('error', t, m)}
       />
 
+      {/* Scan Folder Modal (Phase 4) */}
+      <ScanFolderModal
+        isOpen={isScanFolderOpen}
+        onClose={() => {
+          setIsScanFolderOpen(false);
+          setScanFolderInitialPath(undefined);
+        }}
+        onImportComplete={handleRefreshGames}
+        initialPath={scanFolderInitialPath}
+      />
+
       {/* Settings Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
@@ -343,6 +365,7 @@ export const App: React.FC = () => {
         settings={settings}
         onUpdateSetting={handleUpdateSetting}
         onRefreshGames={handleRefreshGames}
+        onOpenScanFolder={handleOpenScanFolder}
       />
 
       {/* Toast Messages */}

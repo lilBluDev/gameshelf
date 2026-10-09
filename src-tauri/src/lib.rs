@@ -5,6 +5,7 @@ pub mod integrations;
 pub mod launcher;
 pub mod logging;
 pub mod platform;
+pub mod scanner;
 
 use std::path::PathBuf;
 use tauri::Manager;
@@ -16,6 +17,7 @@ pub struct AppState {
     pub db: Database,
     pub data_dir: PathBuf,
     pub log_dir: PathBuf,
+    pub scan_cancel_flag: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -49,11 +51,13 @@ pub fn run() {
             // Initialize SQLite database and run versioned migrations
             let db_path = data_dir.join("gameshelf.db");
             let db = Database::new(&db_path)?;
+            let scan_cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
             app.manage(AppState {
                 db,
                 data_dir,
                 log_dir,
+                scan_cancel_flag,
             });
 
             info!("GameShelf backend setup completed successfully");
@@ -78,6 +82,13 @@ pub fn run() {
             commands::steam::set_steam_library_enabled,
             commands::steam::update_steam_filter_rule,
             commands::steam::include_skipped_steam_app,
+            commands::scanner::start_folder_scan,
+            commands::scanner::cancel_folder_scan,
+            commands::scanner::get_scan_sources,
+            commands::scanner::add_scan_source,
+            commands::scanner::remove_scan_source,
+            commands::scanner::import_scan_candidates,
+            commands::scanner::rescan_source,
         ])
         .run(tauri::generate_context!())
         .expect("error while running GameShelf application");

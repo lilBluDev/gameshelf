@@ -35,7 +35,8 @@ game-launcher/
 │   │   ├── GameCard.tsx        # Cover card with 2:3 ratio and list-item view
 │   │   ├── GameDetailPanel.tsx # Side panel with Play, Edit metadata, Config, and Steam App ID
 │   │   ├── AddGameModal.tsx    # Modal for manual file selection, auto-inspection, duplicate alert
-│   │   ├── SettingsModal.tsx   # Preference modal (General, Appearance, Steam Integrations, Diagnostics)
+│   │   ├── ScanFolderModal.tsx # Recursive folder scanner curation modal with live progress & heuristics
+│   │   ├── SettingsModal.tsx   # Preference modal (General, Appearance, Steam Integrations, Managed Sources, Diagnostics)
 │   │   ├── EmptyState.tsx      # Friendly empty state when 0 games are loaded
 │   │   └── Toast.tsx           # Error and status toast notification container
 │   ├── config/
@@ -44,6 +45,8 @@ game-launcher/
 │   │   └── mockGames.ts        # Dev-only mock games, stripped from production builds
 │   ├── services/
 │   │   ├── api.ts              # Typed API invoke wrapper with pure browser fallback
+│   │   ├── scanner.ts          # Scanner service with progress event listeners and mock fallback
+│   │   ├── scanner.test.ts     # Frontend unit tests for scanner service and candidate import
 │   │   └── steam.test.ts       # Fixture-based tests for VDF parser, library discovery, filtering
 │   ├── types/
 │   │   ├── api.ts              # TypeScript interfaces for commands, responses, and Steam status
@@ -58,18 +61,20 @@ game-launcher/
 │   │   └── default.json        # Narrowly scoped Tauri 2 permissions (no arbitrary shell)
 │   ├── migrations/
 │   │   ├── 001_initial_schema.sql        # Core tables: games, overrides, artwork, etc.
-│   │   └── 002_phase2_manual_library.sql # Added normalized_path, last_launched_at, indexes
+│   │   ├── 002_phase2_manual_library.sql # Added normalized_path, last_launched_at, indexes
+│   │   └── 003_phase4_folder_scanner.sql # Added scan_sources table and index
 │   ├── src/
 │   │   ├── commands/           # Typed Tauri IPC command handlers
 │   │   │   ├── app.rs          # get_app_info
 │   │   │   ├── games.rs        # inspect_file, add_manual_game, launch_game, remove_game, etc.
+│   │   │   ├── scanner.rs      # start_folder_scan, cancel_folder_scan, import_scan_candidates, scan sources
 │   │   │   ├── settings.rs     # get_settings, set_setting
 │   │   │   ├── steam.rs        # get_steam_status, rescan_steam, configure_steam_path, etc.
 │   │   │   └── mod.rs
 │   │   ├── db/                 # SQLite persistence layer
 │   │   │   ├── migrations.rs   # Migration runner with automatic DB backup
 │   │   │   ├── schema.rs       # Typed models (Game, LaunchAction tagged enum)
-│   │   │   └── mod.rs          # Database handle, WAL, upsert_steam_game, mark_missing
+│   │   │   └── mod.rs          # Database handle, WAL, upsert_steam_game, scan_sources, batch import
 │   │   ├── integrations/       # Platform store and emulator integrations
 │   │   │   ├── steam/
 │   │   │   │   ├── filter.rs   # Non-game filtering rules engine and user override evaluation
@@ -82,6 +87,11 @@ game-launcher/
 │   │   ├── platform/           # Windows-specific system inspection
 │   │   │   ├── mod.rs
 │   │   │   └── windows.rs      # Path normalization, PE version info, lnk resolution, URI activation
+│   │   ├── scanner/            # Filesystem folder scanner engine
+│   │   │   ├── classifier.rs   # Heuristic candidate classification, engine indicators, confidence scoring
+│   │   │   ├── rules.rs        # Built-in exclusion lists, skip rules (uninstallers, updaters, crashpad)
+│   │   │   ├── sources.rs      # ScanSource data models and parameters
+│   │   │   └── mod.rs          # Safe BFS traversal, depth limits, progress callback, cancellation token
 │   │   ├── error.rs            # AppError (thiserror) with custom frontend serialization
 │   │   ├── logging.rs          # Structured rolling daily file logger (tracing)
 │   │   ├── lib.rs              # App setup, path resolution, and command registration
@@ -130,3 +140,49 @@ Implemented in `src-tauri/src/launcher/mod.rs` and `src-tauri/src/platform/windo
 - Steam games are launched strictly via `steam://rungameid/<appid>` through the Windows protocol activation layer.
 - Raw binaries are never directly executed for Steam games.
 - Validates that the App ID is a positive integer before launching.
+
+---
+
+## Folder Scanner Pipeline & Classification Architecture
+
+### 1. Safety Guardrails & Traversal Bounding
+Implemented in `src-tauri/src/scanner/mod.rs`:
+- **Root Validation**: Rejects drive roots (`C:\`, `D:\`), Windows system roots (`C:\Windows`, `System32`), and user system AppData (`AppData\Local\Microsoft`, `WindowsApps`) before initiating any traversal.
+- **Bounded Breadth-First Traversal**: Tracks relative folder depths up to a configurable maximum (default 4, maximum 6) to avoid infinite loops or deeply nested node trees.
+- **Relative Path Exclusion**: Excludes known junk folders (`$Recycle.Bin`, `node_modules`, `.git`, `Steam\steamapps`, `Crashpad`, `__pycache__`) relative to the scan root.
+- **Symlink Cycle Guard**: Avoids re-traversing circular filesystem links.
+
+### 2. Heuristic Binary Classification
+Implemented in `src-tauri/src/scanner/classifier.rs`:
+- Every discovered `.exe` is evaluated through explainable heuristics:
+  - **PE Version Metadata**: Extracts Windows PE product name, file description, and company name.
+  - **Directory Name Match**: Calculates similarity between binary stem and parent folder name.
+  - **Engine Signatures**: Detects Unity (`*_Data` folder, `UnityPlayer.dll`), Unreal Engine (`Binaries\Win64`, `Engine` folder), Godot, CryEngine, FMOD (`fmod.dll`, `fmodstudio.dll`), and SDL2 (`SDL2.dll`).
+  - **Top-Level Depth**: Higher confidence given to binaries located in top-level game directories rather than nested utility subfolders.
+  - **File Size Verification**: Excludes zero-byte stubs or binaries smaller than 128 KB from High confidence.
+- Computes `ConfidenceLevel`: `High`, `Medium`, or `Low` with human-readable rationale.
+
+### 3. Skip Rules Engine
+Implemented in `src-tauri/src/scanner/rules.rs`:
+- Standard skip rules with explainable reasons:
+  - **Uninstallers**: `unins*.exe`, `uninstall*.exe`
+  - **Crash Reporters**: `crashpad*.exe`, `*crash*report*.exe`, `unitycrashhandler*.exe`
+  - **Updaters & Launchers**: `*updater*.exe`, `*patcher*.exe`
+  - **Redistributables & Installers**: `dxsetup.exe`, `vcredist*.exe`, `dotNetFx*.exe`
+  - **Anti-Cheat Helpers**: `easyanticheat*.exe`, `battleye*.exe`
+  - **Benchmarks**: `*benchmark*.exe`
+- Non-games are tagged `is_skipped = true` and deselected by default, but viewable via "Show Skipped" in the UI.
+
+### 4. Background Cancellation & Progress Events
+- Background scan runs asynchronously on `tokio::task::spawn_blocking`.
+- Periodically checks an `Arc<AtomicBool>` cancellation token.
+- Emits `folder-scan-progress` Tauri event containing current folder, folders checked, files examined, candidates found, and skipped count.
+- If cancelled, the scan terminates cleanly without modifying the database.
+
+### 5. Atomic Batch Import & Managed Sources
+Implemented in `src-tauri/src/db/mod.rs`:
+- Imports all selected candidates inside a single SQLite transaction.
+- Preserves existing games and user overrides when re-scanning.
+- Tracks roots in `scan_sources` (`id`, `path`, `normalized_path`, `depth`, `game_count`, `last_scanned_at`).
+- Rescanning checks existing folder-sourced games; vanished binaries are marked `GameStatus::Missing`, never deleted from the database.
+

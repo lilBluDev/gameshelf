@@ -139,3 +139,59 @@ export interface SteamStatusResponse {
   total_imported_games: number;
   warnings: string[];
 }
+
+export type ConfidenceLevel = 'High' | 'Medium' | 'Low';
+
+export interface ScanCandidate {
+  id: string;
+  title: string;
+  executable_path: string;
+  working_dir: string;
+  args: string[];
+  confidence: ConfidenceLevel;
+  reason: string;
+  file_size_bytes: number;
+  is_skipped: boolean;
+  skip_reason: string | null;
+  selected: boolean;
+  existing_game_id: string | null;
+}
+
+export interface ScanProgress {
+  current_directory: string;
+  folders_scanned: number;
+  files_examined: number;
+  candidates_found: number;
+  skipped_count: number;
+  errors_count: number;
+  is_complete: boolean;
+  is_cancelled: boolean;
+}
+
+export interface ScanResult {
+  candidates: ScanCandidate[];
+  folders_scanned: number;
+  files_examined: number;
+  skipped_count: number;
+  errors: string[];
+  is_cancelled: boolean;
+}
+
+export interface ScanOptions {
+  root_paths: string[];
+  max_depth: number;
+  custom_exclusions: string[];
+  show_skipped: boolean;
+}
+
+export interface ScanSource {
+  id: string;
+  path: string;
+  normalized_path: string;
+  depth: number;
+  last_scanned_at: string | null;
+  game_count: number;
+  created_at: string;
+  updated_at: string;
+}
+

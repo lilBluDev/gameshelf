@@ -73,8 +73,10 @@ describe('GameShelf Shell & Phase 2 UI Tests', () => {
     await waitFor(() => {
       expect(screen.getByText('Your shelf is empty')).toBeDefined();
       expect(
-        screen.getByText(/GameShelf stores your games in a fast, local-first SQLite database/i)
+        screen.getByText(/GameShelf discovers your installed PC games, Steam titles, and DRM-free directories/i)
       ).toBeDefined();
+      expect(screen.getByText('Scan Folder for Games')).toBeDefined();
+      expect(screen.getByText('Add Single Game')).toBeDefined();
     });
   });
 
@@ -396,4 +398,51 @@ describe('GameShelf Shell & Phase 2 UI Tests', () => {
       expect(apiModule.api.rescanSteam).toHaveBeenCalled();
     });
   });
+
+  it('opens Scan Folder modal from TopBar and verifies setup stage controls', async () => {
+    vi.spyOn(apiModule.api, 'listGames').mockResolvedValue({
+      games: [],
+      total: 0,
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Scan Folder')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Scan Folder'));
+
+    // Modal opens
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeDefined();
+      expect(screen.getByRole('heading', { name: 'Scan Folder for Games' })).toBeDefined();
+      expect(screen.getByText(/Choose a local folder to discover game executables/i)).toBeDefined();
+      expect(screen.getByPlaceholderText(/e\.g\. D:\\Games or C:\\Games\\PC/i)).toBeDefined();
+      expect(screen.getByText(/Safety guarantee:/i)).toBeDefined();
+      expect(screen.getByText(/Folder Recursion Depth/i)).toBeDefined();
+    });
+  });
+
+  it('opens Scan Folder modal from EmptyState button', async () => {
+    vi.spyOn(apiModule.api, 'listGames').mockResolvedValue({
+      games: [],
+      total: 0,
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Scan Folder for Games')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Scan Folder for Games'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeDefined();
+      expect(screen.getByRole('heading', { name: 'Scan Folder for Games' })).toBeDefined();
+    });
+  });
 });
+
+

@@ -17,11 +17,14 @@ import {
   Filter,
   CheckCircle2,
   PlusCircle,
+  Trash2,
+  FolderPlus,
 } from 'lucide-react';
 import {
   AppInfo,
   AppSettings,
   CardSize,
+  ScanSource,
   SteamStatusResponse,
   SkippedSteamApp,
   ThemeMode,
@@ -29,6 +32,7 @@ import {
 } from '../types/api';
 import { APP_CONFIG } from '../config/appConfig';
 import { api } from '../services/api';
+import { scannerService } from '../services/scanner';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -37,6 +41,7 @@ interface SettingsModalProps {
   settings: AppSettings;
   onUpdateSetting: (key: string, value: string) => Promise<void>;
   onRefreshGames?: () => void;
+  onOpenScanFolder?: (path?: string) => void;
 }
 
 type SettingsSection =
@@ -55,6 +60,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
   onUpdateSetting,
   onRefreshGames,
+  onOpenScanFolder,
 }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance');
 
@@ -65,6 +71,85 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [steamPathInput, setSteamPathInput] = useState('');
   const [steamMessage, setSteamMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [skippedApps, setSkippedApps] = useState<SkippedSteamApp[]>([]);
+
+  // Managed folder scan sources state (Phase 4)
+  const [scanSources, setScanSources] = useState<ScanSource[]>([]);
+  const [loadingSources, setLoadingSources] = useState(false);
+  const [rescanningSourceId, setRescanningSourceId] = useState<string | null>(null);
+  const [sourceMessage, setSourceMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [newSourcePath, setNewSourcePath] = useState('');
+  const [showAddSourceInput, setShowAddSourceInput] = useState(false);
+
+  const loadScanSources = async () => {
+    try {
+      setLoadingSources(true);
+      const res = await scannerService.getScanSources();
+      setScanSources(res);
+    } catch (err) {
+      console.warn('Failed to load scan sources:', err);
+    } finally {
+      setLoadingSources(false);
+    }
+  };
+
+  const handleRescanSource = async (sourceId: string) => {
+    try {
+      setRescanningSourceId(sourceId);
+      setSourceMessage(null);
+      const res = await scannerService.rescanSource(sourceId);
+      setSourceMessage({
+        type: 'success',
+        text: `Rescan complete: ${res.candidates.length} candidate(s) found, ${res.skipped_count} utility file(s) skipped.`,
+      });
+      await loadScanSources();
+      onRefreshGames?.();
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setSourceMessage({
+        type: 'error',
+        text: e.message || 'Failed to rescan folder source.',
+      });
+    } finally {
+      setRescanningSourceId(null);
+    }
+  };
+
+  const handleRemoveSource = async (sourceId: string) => {
+    try {
+      await scannerService.removeScanSource(sourceId);
+      await loadScanSources();
+      setSourceMessage({
+        type: 'success',
+        text: 'Folder removed from managed sources. (Games in library were preserved).',
+      });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setSourceMessage({
+        type: 'error',
+        text: e.message || 'Failed to remove scan source.',
+      });
+    }
+  };
+
+  const handleAddSource = async () => {
+    if (!newSourcePath.trim()) return;
+    try {
+      await scannerService.addScanSource(newSourcePath.trim(), 4);
+      setNewSourcePath('');
+      setShowAddSourceInput(false);
+      await loadScanSources();
+      setSourceMessage({
+        type: 'success',
+        text: 'Scan source added successfully. You can rescan it anytime.',
+      });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setSourceMessage({
+        type: 'error',
+        text: e.message || 'Failed to add folder source. Ensure path is a valid game folder.',
+      });
+    }
+  };
 
   const loadSteamStatus = async () => {
     try {
@@ -82,6 +167,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     if (isOpen && activeSection === 'integrations') {
       loadSteamStatus();
+    } else if (isOpen && activeSection === 'library') {
+      loadScanSources();
     }
   }, [isOpen, activeSection]);
 
@@ -300,18 +387,188 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             )}
 
-            {/* Library & Scan Section */}
+            {/* Library & Scan Section (Phase 4) */}
             {activeSection === 'library' && (
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-semibold text-text">Library & Scan Folders</h4>
-                  <p className="text-xs text-muted">Manage directory roots for automatic game discovery.</p>
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-text">Managed Scan Folders</h4>
+                    <p className="text-xs text-muted">
+                      Directory roots tracked for automatic game discovery and one-click rescanning.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {onOpenScanFolder && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          onOpenScanFolder();
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-control shadow-sm transition-colors"
+                      >
+                        <FolderSearch className="w-3.5 h-3.5" />
+                        <span>Scan Folder Now</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowAddSourceInput(!showAddSourceInput)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-2 border border-border hover:bg-surface-2/80 text-text text-xs font-medium rounded-control transition-colors"
+                    >
+                      <FolderPlus className="w-3.5 h-3.5 text-accent" />
+                      <span>{showAddSourceInput ? 'Cancel' : 'Add Root'}</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="bg-surface-2/40 border border-border rounded-card p-6 text-center space-y-2">
-                  <FolderSearch className="w-8 h-8 text-muted mx-auto" />
-                  <div className="text-xs font-medium text-text">Automated folder scanner arrives in Phase 4</div>
-                  <p className="text-[11px] text-muted max-w-sm mx-auto">
-                    Manual game additions via "+ Add Game" and Steam library import are fully functional now.
+
+                {/* Status Message */}
+                {sourceMessage && (
+                  <div
+                    className={`p-3 rounded-control border text-xs flex items-center justify-between ${
+                      sourceMessage.type === 'success'
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                        : 'bg-danger/10 border-danger/20 text-danger'
+                    }`}
+                  >
+                    <span>{sourceMessage.text}</span>
+                    <button
+                      onClick={() => setSourceMessage(null)}
+                      className="p-1 hover:text-white"
+                      title="Dismiss"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Add Source Input Row */}
+                {showAddSourceInput && (
+                  <div className="p-3 bg-surface-2/60 border border-border rounded-card space-y-2 animate-fade-in">
+                    <label className="text-xs font-medium text-text">Add Folder Scan Root</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newSourcePath}
+                        onChange={(e) => setNewSourcePath(e.target.value)}
+                        placeholder="e.g. D:\Games or C:\Games\DRMFree"
+                        className="flex-1 bg-surface border border-border rounded-control px-3 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddSource}
+                        className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-control transition-colors"
+                      >
+                        Add Source
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Scan Sources List */}
+                <div className="space-y-2">
+                  {loadingSources ? (
+                    <div className="py-8 text-center text-xs text-muted">
+                      <RefreshCw className="w-5 h-5 mx-auto animate-spin mb-2 text-accent" />
+                      Loading managed scan folders...
+                    </div>
+                  ) : scanSources.length === 0 ? (
+                    <div className="p-6 bg-surface-2/30 border border-border rounded-card text-center space-y-2">
+                      <Folder className="w-8 h-8 text-muted/40 mx-auto" />
+                      <div className="text-xs font-medium text-text">No managed scan roots yet</div>
+                      <p className="text-[11px] text-muted max-w-sm mx-auto">
+                        Add a games directory to track it for rescans, or use "Scan Folder Now" to inspect and import games.
+                      </p>
+                    </div>
+                  ) : (
+                    scanSources.map((source) => (
+                      <div
+                        key={source.id}
+                        className="p-3 bg-surface-2/40 border border-border rounded-card flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center border border-border text-accent flex-shrink-0">
+                            <Folder className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-text truncate">
+                              {source.path}
+                            </div>
+                            <div className="text-[11px] text-muted flex items-center gap-2 mt-0.5">
+                              <span>{source.game_count} games tracked</span>
+                              <span>•</span>
+                              <span>Depth: {source.depth}</span>
+                              <span>•</span>
+                              <span>
+                                Last scanned:{' '}
+                                {source.last_scanned_at
+                                  ? new Date(source.last_scanned_at).toLocaleDateString()
+                                  : 'Never'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            type="button"
+                            disabled={rescanningSourceId === source.id}
+                            onClick={() => handleRescanSource(source.id)}
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-surface border border-border hover:bg-surface-2 text-text text-xs rounded transition-colors"
+                            title="Rescan this directory"
+                          >
+                            <RefreshCw
+                              className={`w-3 h-3 text-accent ${
+                                rescanningSourceId === source.id ? 'animate-spin' : ''
+                              }`}
+                            />
+                            <span>{rescanningSourceId === source.id ? 'Scanning...' : 'Rescan'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSource(source.id)}
+                            className="p-1.5 text-muted hover:text-danger rounded hover:bg-surface transition-colors"
+                            title="Remove this scan root (keeps library games)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Exclusions & Protection Notice */}
+                <div className="p-4 bg-surface-2/20 border border-border rounded-card space-y-2">
+                  <div className="text-xs font-semibold text-text flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-accent" />
+                    <span>Built-in Scan Exclusions & Safety</span>
+                  </div>
+                  <p className="text-[11px] text-muted leading-relaxed">
+                    GameShelf automatically bypasses system noise and cache directories:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {[
+                      '$Recycle.Bin',
+                      'System Volume Information',
+                      'Windows',
+                      'node_modules',
+                      '.git',
+                      '.svn',
+                      'AppData',
+                      'temp',
+                      'tmp',
+                    ].map((tag) => (
+                      <span
+                        key={tag}
+                        className="px-2 py-0.5 rounded bg-surface border border-border text-[10px] text-muted font-mono"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted/80 pt-1">
+                    Whole drive roots (such as <code>C:\</code>) are blocked to prevent accidental system traversals.
                   </p>
                 </div>
               </div>

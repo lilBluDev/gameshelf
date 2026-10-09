@@ -40,6 +40,15 @@ GameShelf focuses on privacy, local-first performance, and elegant artwork prese
 - **Integrations Settings & Library Toggles**: Settings panel displays Steam status, detected libraries with individual enable/disable checkboxes, filter rule toggles, scan warnings, and a "Rescan Steam Library" trigger.
 - **Real-Time Steam Badge Counter**: Sidebar navigation displays live counts of detected Steam games.
 
+### Folder Scanner & Source Management (Phase 4)
+- **Safe, Bounded Filesystem Scanner**: Recursively inspects user-selected directories with strict depth limits (default 4, configurable 1–6) and safeguards preventing scanning of drive roots (`C:\`) or Windows system folders.
+- **Explainable Binary Classification**: Scores candidate executables (`High`, `Medium`, `Low`) based on PE product names, directory name matching, and game engine signatures (Unity `*_Data`, Unreal `Binaries`, FMOD, SDL2).
+- **Built-in Skip Rules**: Automatically detects and skips non-game files (uninstallers, crash reporters, updaters, redistributables, anti-cheat helpers, benchmarks) with human-readable explanations.
+- **Cancellable Background Scans**: Real-time progress streaming (`folder-scan-progress` event) reporting folders checked, files examined, and candidate count. Clean cancellation leaves the database untouched.
+- **Preview & Curation Modal**: Full curation table before import allowing title editing, bulk select/deselect, confidence badge inspection, and viewing skipped items.
+- **Atomic Batch Import**: Selected games are committed in a single SQLite transaction, preserving all user metadata overrides.
+- **Managed Scan Folders**: Scan sources tracked in SQLite with one-click rescanning from Settings. Vanished games are marked `Missing` without deleting records or files.
+
 ---
 
 ## Prerequisites
