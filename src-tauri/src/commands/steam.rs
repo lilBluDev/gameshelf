@@ -1,45 +1,48 @@
 use tauri::State;
 use tracing::info;
 
-use crate::db::Database;
 use crate::error::AppResult;
 use crate::integrations::steam::{self, SteamScanResult, SteamStatusResponse};
+use crate::AppState;
 
 #[tauri::command]
-pub async fn get_steam_status(db: State<'_, Database>) -> AppResult<SteamStatusResponse> {
-    steam::get_steam_status(&db)
+pub async fn get_steam_status(state: State<'_, AppState>) -> AppResult<SteamStatusResponse> {
+    steam::get_steam_status(&state.db)
 }
 
 #[tauri::command]
-pub async fn rescan_steam(db: State<'_, Database>) -> AppResult<SteamScanResult> {
+pub async fn rescan_steam(state: State<'_, AppState>) -> AppResult<SteamScanResult> {
     info!("Triggering Steam library rescan");
-    steam::rescan_steam_games(&db)
+    steam::rescan_steam_games(&state.db)
 }
 
 #[tauri::command]
-pub async fn configure_steam_path(path: Option<String>, db: State<'_, Database>) -> AppResult<()> {
-    steam::configure_steam_path(&db, path.as_deref())
+pub async fn configure_steam_path(
+    path: Option<String>,
+    state: State<'_, AppState>,
+) -> AppResult<()> {
+    steam::configure_steam_path(&state.db, path.as_deref())
 }
 
 #[tauri::command]
 pub async fn set_steam_library_enabled(
     library_path: String,
     enabled: bool,
-    db: State<'_, Database>,
+    state: State<'_, AppState>,
 ) -> AppResult<()> {
-    steam::set_steam_library_enabled(&db, &library_path, enabled)
+    steam::set_steam_library_enabled(&state.db, &library_path, enabled)
 }
 
 #[tauri::command]
 pub async fn update_steam_filter_rule(
     rule_id: String,
     enabled: bool,
-    db: State<'_, Database>,
+    state: State<'_, AppState>,
 ) -> AppResult<()> {
-    steam::update_steam_filter_rule(&db, &rule_id, enabled)
+    steam::update_steam_filter_rule(&state.db, &rule_id, enabled)
 }
 
 #[tauri::command]
-pub async fn include_skipped_steam_app(app_id: u32, db: State<'_, Database>) -> AppResult<()> {
-    steam::include_skipped_steam_app(&db, app_id)
+pub async fn include_skipped_steam_app(app_id: u32, state: State<'_, AppState>) -> AppResult<()> {
+    steam::include_skipped_steam_app(&state.db, app_id)
 }
