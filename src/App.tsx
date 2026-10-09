@@ -8,6 +8,7 @@ import { EmptyState } from './components/EmptyState';
 import { SettingsModal } from './components/SettingsModal';
 import { AddGameModal } from './components/AddGameModal';
 import { ScanFolderModal } from './components/ScanFolderModal';
+import { ScanRomsModal } from './components/ScanRomsModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { api } from './services/api';
 import { AppInfo, AppSettings, CommandError, SortField, ViewMode } from './types/api';
@@ -34,11 +35,20 @@ export const App: React.FC = () => {
   const [isAddGameOpen, setIsAddGameOpen] = useState(false);
   const [isScanFolderOpen, setIsScanFolderOpen] = useState(false);
   const [scanFolderInitialPath, setScanFolderInitialPath] = useState<string | undefined>(undefined);
+  const [isScanRomsOpen, setIsScanRomsOpen] = useState(false);
+  const [scanRomsProfileId, setScanRomsProfileId] = useState<string | undefined>(undefined);
+  const [scanRomsFolderPath, setScanRomsFolderPath] = useState<string | undefined>(undefined);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const handleOpenScanFolder = (path?: string) => {
     setScanFolderInitialPath(path);
     setIsScanFolderOpen(true);
+  };
+
+  const handleOpenScanRoms = (profileId?: string, folderPath?: string) => {
+    setScanRomsProfileId(profileId);
+    setScanRomsFolderPath(folderPath);
+    setIsScanRomsOpen(true);
   };
 
   const addToast = (type: 'error' | 'success' | 'info', title: string, message?: string) => {
@@ -275,6 +285,7 @@ export const App: React.FC = () => {
             totalGames={visibleGames.length}
             onOpenAddGame={() => setIsAddGameOpen(true)}
             onOpenScanFolder={() => handleOpenScanFolder()}
+            onOpenScanRoms={() => handleOpenScanRoms()}
           />
 
           {/* Games Display Area */}
@@ -292,6 +303,7 @@ export const App: React.FC = () => {
                 }}
                 onOpenAddGame={() => setIsAddGameOpen(true)}
                 onOpenScanFolder={() => handleOpenScanFolder()}
+                onOpenScanRoms={() => handleOpenScanRoms()}
               />
             ) : viewMode === 'grid' ? (
               <div className={gridClasses}>
@@ -357,6 +369,19 @@ export const App: React.FC = () => {
         initialPath={scanFolderInitialPath}
       />
 
+      {/* Scan & Import ROMs Modal (Phase 5) */}
+      <ScanRomsModal
+        isOpen={isScanRomsOpen}
+        onClose={() => {
+          setIsScanRomsOpen(false);
+          setScanRomsProfileId(undefined);
+          setScanRomsFolderPath(undefined);
+        }}
+        onImportComplete={handleRefreshGames}
+        initialProfileId={scanRomsProfileId}
+        initialFolderPath={scanRomsFolderPath}
+      />
+
       {/* Settings Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
@@ -366,6 +391,7 @@ export const App: React.FC = () => {
         onUpdateSetting={handleUpdateSetting}
         onRefreshGames={handleRefreshGames}
         onOpenScanFolder={handleOpenScanFolder}
+        onOpenScanRoms={(pId) => handleOpenScanRoms(pId)}
       />
 
       {/* Toast Messages */}

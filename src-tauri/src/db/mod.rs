@@ -3,10 +3,13 @@ pub mod schema;
 
 use chrono::Utc;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tracing::info;
 
+use crate::emulators::profiles::EmulatorProfile;
+use crate::emulators::rom_scanner::RomCandidate;
 use crate::error::{AppError, AppResult};
 use crate::scanner::{ConfidenceLevel, ScanCandidate, ScanSource};
 use schema::{Game, GameOverrides, GameStatus, LaunchAction, SourceKind};
@@ -42,6 +45,7 @@ impl Database {
 
         // Run migrations with backup support
         migrations::run_migrations(&mut raw_conn, Some(&path_buf))?;
+        Self::seed_builtin_profiles_conn(&raw_conn)?;
 
         Ok(Self {
             conn: Arc::new(Mutex::new(raw_conn)),
@@ -57,6 +61,7 @@ impl Database {
              PRAGMA busy_timeout = 5000;",
         )?;
         migrations::run_migrations(&mut raw_conn, None)?;
+        Self::seed_builtin_profiles_conn(&raw_conn)?;
         Ok(Self {
             conn: Arc::new(Mutex::new(raw_conn)),
             path: PathBuf::from(":memory:"),
@@ -889,6 +894,9 @@ impl Database {
                 LaunchAction::Shortcut { target, .. } if !Path::new(target).exists() => {
                     game.status = GameStatus::Missing;
                 }
+                LaunchAction::EmulatedGame { rom_path, .. } if !Path::new(rom_path).exists() => {
+                    game.status = GameStatus::Missing;
+                }
                 _ => {}
             }
 
@@ -949,6 +957,282 @@ impl Database {
             normalized_path: row.get(22)?,
             created_at: row.get(23)?,
         })
+    }
+
+    pub fn seed_builtin_profiles_conn(conn: &Connection) -> AppResult<()> {
+        let builtins = crate::emulators::profiles::get_builtin_profiles();
+        let now = Utc::now().to_rfc3339();
+
+        for p in builtins {
+            let systems_json = serde_json::to_string(&p.systems)?;
+            let exts_json = serde_json::to_string(&p.supported_extensions)?;
+            let template_json = serde_json::to_string(&p.argument_template)?;
+            let working_dir_rule = match p.working_dir_rule {
+                crate::emulators::profiles::WorkingDirRule::EmulatorDir => {
+                    "EmulatorDir".to_string()
+                }
+                crate::emulators::profiles::WorkingDirRule::RomDir => "RomDir".to_string(),
+                crate::emulators::profiles::WorkingDirRule::Custom(ref s) => {
+                    format!("Custom:{}", s)
+                }
+            };
+            let hints_json = serde_json::to_string(&p.detection_hints)?;
+
+            conn.execute(
+                "INSERT INTO emulator_profiles (
+                    id, name, systems_json, supported_extensions_json, argument_template_json,
+                    working_dir_rule, executable_path, core_path, is_builtin, detection_hints_json,
+                    verification_source, created_at, updated_at
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, ?10, ?11, ?11)
+                ON CONFLICT(id) DO NOTHING",
+                params![
+                    p.id,
+                    p.name,
+                    systems_json,
+                    exts_json,
+                    template_json,
+                    working_dir_rule,
+                    p.executable_path,
+                    p.core_path,
+                    hints_json,
+                    p.verification_source,
+                    now,
+                ],
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// List all emulator profiles (built-in and user-added)
+    pub fn list_emulator_profiles(&self) -> AppResult<Vec<EmulatorProfile>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, systems_json, supported_extensions_json, argument_template_json,
+                    working_dir_rule, executable_path, core_path, is_builtin, detection_hints_json,
+                    verification_source
+             FROM emulator_profiles ORDER BY is_builtin DESC, name ASC",
+        )?;
+
+        let rows = stmt.query_map([], Self::map_emulator_profile_row)?;
+        let mut list = Vec::new();
+        for r in rows {
+            let mut profile = r?;
+            profile.validation_status =
+                crate::emulators::profiles::compute_validation_status(&profile);
+            list.push(profile);
+        }
+        Ok(list)
+    }
+
+    /// Retrieve a single emulator profile by ID
+    pub fn get_emulator_profile(&self, id: &str) -> AppResult<Option<EmulatorProfile>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, systems_json, supported_extensions_json, argument_template_json,
+                    working_dir_rule, executable_path, core_path, is_builtin, detection_hints_json,
+                    verification_source
+             FROM emulator_profiles WHERE id = ?1",
+        )?;
+
+        let mut rows = stmt.query_map(params![id], Self::map_emulator_profile_row)?;
+        if let Some(r) = rows.next() {
+            let mut profile = r?;
+            profile.validation_status =
+                crate::emulators::profiles::compute_validation_status(&profile);
+            Ok(Some(profile))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Save (upsert) an emulator profile
+    pub fn save_emulator_profile(&self, profile: &EmulatorProfile) -> AppResult<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = Utc::now().to_rfc3339();
+        let systems_json = serde_json::to_string(&profile.systems)?;
+        let exts_json = serde_json::to_string(&profile.supported_extensions)?;
+        let template_json = serde_json::to_string(&profile.argument_template)?;
+        let working_dir_rule = match profile.working_dir_rule {
+            crate::emulators::profiles::WorkingDirRule::EmulatorDir => "EmulatorDir".to_string(),
+            crate::emulators::profiles::WorkingDirRule::RomDir => "RomDir".to_string(),
+            crate::emulators::profiles::WorkingDirRule::Custom(ref s) => format!("Custom:{}", s),
+        };
+        let hints_json = serde_json::to_string(&profile.detection_hints)?;
+
+        conn.execute(
+            "INSERT INTO emulator_profiles (
+                id, name, systems_json, supported_extensions_json, argument_template_json,
+                working_dir_rule, executable_path, core_path, is_builtin, detection_hints_json,
+                verification_source, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12)
+            ON CONFLICT(id) DO UPDATE SET
+                name = ?2,
+                systems_json = ?3,
+                supported_extensions_json = ?4,
+                argument_template_json = ?5,
+                working_dir_rule = ?6,
+                executable_path = ?7,
+                core_path = ?8,
+                detection_hints_json = ?10,
+                verification_source = ?11,
+                updated_at = ?12",
+            params![
+                profile.id,
+                profile.name,
+                systems_json,
+                exts_json,
+                template_json,
+                working_dir_rule,
+                profile.executable_path,
+                profile.core_path,
+                if profile.is_builtin { 1 } else { 0 },
+                hints_json,
+                profile.verification_source,
+                now,
+            ],
+        )?;
+
+        Ok(())
+    }
+
+    /// Delete a custom emulator profile (built-ins cannot be deleted)
+    pub fn delete_emulator_profile(&self, id: &str) -> AppResult<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM emulator_profiles WHERE id = ?1 AND is_builtin = 0",
+            params![id],
+        )?;
+        Ok(())
+    }
+
+    fn map_emulator_profile_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<EmulatorProfile> {
+        let id: String = row.get(0)?;
+        let name: String = row.get(1)?;
+        let systems_raw: String = row.get(2)?;
+        let exts_raw: String = row.get(3)?;
+        let template_raw: String = row.get(4)?;
+        let rule_raw: String = row.get(5)?;
+        let executable_path: Option<String> = row.get(6)?;
+        let core_path: Option<String> = row.get(7)?;
+        let is_builtin: bool = row.get::<_, i32>(8)? == 1;
+        let hints_raw: String = row.get(9)?;
+        let verification_source: Option<String> = row.get(10)?;
+
+        let systems = serde_json::from_str(&systems_raw).unwrap_or_default();
+        let supported_extensions = serde_json::from_str(&exts_raw).unwrap_or_default();
+        let argument_template = serde_json::from_str(&template_raw).unwrap_or_default();
+        let working_dir_rule = if rule_raw == "RomDir" {
+            crate::emulators::profiles::WorkingDirRule::RomDir
+        } else if let Some(cust) = rule_raw.strip_prefix("Custom:") {
+            crate::emulators::profiles::WorkingDirRule::Custom(cust.to_string())
+        } else {
+            crate::emulators::profiles::WorkingDirRule::EmulatorDir
+        };
+        let detection_hints = serde_json::from_str(&hints_raw).unwrap_or_default();
+
+        Ok(EmulatorProfile {
+            id,
+            name,
+            systems,
+            supported_extensions,
+            argument_template,
+            working_dir_rule,
+            executable_path,
+            core_path,
+            is_builtin,
+            detection_hints,
+            verification_source,
+            validation_status:
+                crate::emulators::profiles::EmulatorValidationStatus::ExecutableMissing,
+        })
+    }
+
+    /// Returns a set of normalized ROM paths for all currently tracked Emulated games
+    pub fn get_existing_emulated_rom_paths(&self) -> AppResult<HashSet<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT normalized_path FROM games WHERE source_kind = 'Emulated' AND normalized_path IS NOT NULL",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut set = HashSet::new();
+        for r in rows {
+            set.insert(r?);
+        }
+        Ok(set)
+    }
+
+    /// Atomically imports a batch of selected ROM candidates as Emulated games
+    pub fn import_rom_candidates(&self, candidates: &[RomCandidate]) -> AppResult<usize> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        let now = Utc::now().to_rfc3339();
+        let mut imported_count = 0;
+
+        for cand in candidates {
+            if !cand.selected {
+                continue;
+            }
+
+            let norm = crate::platform::windows::normalize_path(&cand.rom_path);
+            let launch_action = LaunchAction::EmulatedGame {
+                profile_id: cand.profile_id.clone(),
+                rom_path: cand.rom_path.clone(),
+                arg_overrides: None,
+            };
+            let launch_action_json = serde_json::to_string(&launch_action)?;
+            let parent_dir = Path::new(&cand.rom_path)
+                .parent()
+                .map(|p| p.to_string_lossy().to_string());
+
+            let existing_id: Option<String> = tx
+                .query_row(
+                    "SELECT id FROM games WHERE source_kind = 'Emulated' AND normalized_path = ?1",
+                    params![norm],
+                    |r| r.get(0),
+                )
+                .optional()?;
+
+            if let Some(id) = existing_id {
+                tx.execute(
+                    "UPDATE games SET install_dir = ?1, launch_action = ?2, status = 'Installed', last_scanned_at = ?3, updated_at = ?3 WHERE id = ?4",
+                    params![parent_dir, launch_action_json, now, id],
+                )?;
+            } else {
+                let id = uuid::Uuid::new_v4().to_string();
+                let sort_title = cand.title.to_lowercase();
+                let tags_json = serde_json::to_string(&vec![cand.system.clone()])?;
+
+                tx.execute(
+                    "INSERT INTO games (
+                        id, title, sort_title, source_kind, source_id, install_dir, launch_action,
+                        status, last_scanned_at, is_favorite, is_hidden, match_confidence,
+                        provider_attribution, created_at, updated_at, normalized_path,
+                        genres, tags, user_tags
+                    ) VALUES (
+                        ?1, ?2, ?3, 'Emulated', ?4, ?5, ?6,
+                        'Installed', ?7, 0, 0, 1.0,
+                        'ROM Scanner', ?7, ?7, ?8,
+                        '[]', ?9, '[]'
+                    )",
+                    params![
+                        id,
+                        cand.title,
+                        sort_title,
+                        cand.profile_id,
+                        parent_dir,
+                        launch_action_json,
+                        now,
+                        norm,
+                        tags_json,
+                    ],
+                )?;
+            }
+            imported_count += 1;
+        }
+
+        tx.commit()?;
+        Ok(imported_count)
     }
 
     pub fn get_version(&self) -> AppResult<u32> {

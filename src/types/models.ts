@@ -54,16 +54,40 @@ export interface Game {
   artwork?: Partial<Record<ArtworkRole, ArtworkAsset>>;
 }
 
+export type WorkingDirRule = 'EmulatorDir' | 'RomDir' | { Custom: string };
+
+export type EmulatorValidationStatus =
+  | { status: 'Verified'; detail?: never }
+  | { status: 'ExecutableMissing'; detail?: never }
+  | { status: 'NeedsConfiguration'; detail: string }
+  | { status: 'InvalidTemplate'; detail: string };
+
+export interface RegistryHint {
+  hive: string;
+  path: string;
+  key: string;
+}
+
+export interface DetectionHints {
+  known_paths: string[];
+  registry_keys: RegistryHint[];
+  shortcut_names: string[];
+  executable_names: string[];
+}
+
 export interface EmulatorProfile {
   id: string;
   name: string;
-  executable_path: string;
-  detection_source: string;
   systems: string[];
-  extensions: string[];
+  supported_extensions: string[];
   argument_template: string[];
-  working_dir_rule: string;
-  validation_status: string;
+  working_dir_rule: WorkingDirRule;
+  executable_path: string | null;
+  core_path: string | null;
+  is_builtin: boolean;
+  detection_hints: DetectionHints;
+  verification_source: string | null;
+  validation_status: EmulatorValidationStatus;
 }
 
 export interface ScanJob {

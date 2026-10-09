@@ -15,8 +15,8 @@
 - [x] Phase 2 — Persistent manual library and direct launch (2026-10-09)
 - [x] Phase 3 — Steam discovery and launching (2026-10-09)
 - [x] Phase 4 — Folder scanner & source management (2026-10-09)
-- [ ] Phase 5 — Metadata & artwork pipeline
-- [ ] Phase 6 — Emulator manager & profiles
+- [x] Phase 5 — Emulator Profiles and Emulated Games (2026-10-09)
+- [ ] Phase 6 — Metadata & artwork pipeline
 - [ ] Phase 7 — Polish, hardening & packaging
 
 ---
@@ -29,15 +29,15 @@
 | Design Tokens & Theme System | Implemented | `tailwind.config.js` and `src/index.css` define dark, light, system theme tokens and respect `prefers-reduced-motion` |
 | Native Window Title Bar | Implemented | `src/components/TitleBar.tsx` with non-blocking drag region, window minimize/maximize/close via Tauri API + web fallback |
 | Navigation Sidebar with Real Counts | Implemented | `src/components/Sidebar.tsx` with Library, Favorites, Steam Games (real counter badge), PC Games, Emulated, and Settings |
-| Top Toolbar & View Controls | Implemented | `src/components/TopBar.tsx` with search input, sort selector, grid/list view toggle, active "+ Add Game" and "Scan Folder" buttons |
+| Top Toolbar & View Controls | Implemented | `src/components/TopBar.tsx` with search input, sort selector, grid/list view toggle, active "+ Add Game", "Scan Folder", and "Scan ROMs" buttons |
 | Responsive Cover Grid & Card | Implemented | `src/components/GameCard.tsx` with 2:3 ratio, deterministic initials placeholder gradient, and list/grid layout |
-| Empty State | Implemented | `src/components/EmptyState.tsx` rendered when library is empty with "Scan Folder for Games" and "Add Single Game" actions |
+| Empty State | Implemented | `src/components/EmptyState.tsx` rendered when library is empty with "Scan Folder for Games", "Scan for ROMs", and "Add Single Game" actions |
 | Settings Page Skeleton | Implemented | `src/components/SettingsModal.tsx` with General, Appearance, Library & scan, Integrations, Emulators, Metadata & artwork, Diagnostics |
 | Live Diagnostics in Settings | Implemented | Real-time inspection of OS, App Data Dir, Log Dir, Database Schema Version from `get_app_info` |
 | Dev-only UI Fixtures | Implemented | `src/fixtures/mockGames.ts` strictly gated by `import.meta.env.DEV`, excluded from production builds |
-| SQLite Schema & Migrations (v1, v2, v3) | Implemented | `001_initial_schema.sql`, `002_phase2_manual_library.sql`, `003_phase4_folder_scanner.sql` with `scan_sources` and indexes |
+| SQLite Schema & Migrations (v1, v2, v3, v4) | Implemented | `001_initial_schema.sql`, `002_phase2_manual_library.sql`, `003_phase4_folder_scanner.sql`, `004_phase5_emulators.sql` with `emulator_profiles` table |
 | Database Migration Engine | Implemented | `src-tauri/src/db/migrations.rs` with version tracking, transaction execution, and pre-migration backup creation |
-| Database Access Layer | Implemented | `src-tauri/src/db/mod.rs` with manual, Steam, and folder scan source queries, batch candidate imports, and vanished file marking |
+| Database Access Layer | Implemented | `src-tauri/src/db/mod.rs` with manual, Steam, folder scan, and emulator profile CRUD, batch ROM import, and vanished ROM file marking |
 | User Metadata Overrides Isolation | Implemented | `game_overrides` joined via `COALESCE(go.field, g.field)` so manual edits persist independently of provider re-scans |
 | Windows Path Normalization | Implemented | `src-tauri/src/platform/windows.rs` canonicalizes drives and slashes, case-insensitively indexed for duplicate detection |
 | Executable & Shortcut Inspection | Implemented | `src-tauri/src/platform/windows.rs` extracts PE version info, infers title from filename stem, and safely parses `.lnk` shell link targets |
@@ -66,12 +66,23 @@
 | Curation & Review Modal | Implemented | `src/components/ScanFolderModal.tsx` with bulk select/deselect, confidence badges, explainable reasons, and inline title editing |
 | Atomic Batch Import Transaction | Implemented | `import_scan_candidates` command executes in a single SQLite transaction, preserving user overrides and leaving DB clean on cancellation |
 | Managed Scan Roots & Rescan | Implemented | `scan_sources` table tracks directories and depths; rescan detects vanished files and marks them `Missing` without deleting records |
-| Frontend Unit & Integration Tests | Implemented | 19/19 tests passing (`src/services/steam.test.ts`, `src/services/scanner.test.ts`, `src/App.test.tsx`) via `vitest run` |
+| Data-Driven Emulator Profiles | Implemented | `src-tauri/src/emulators/profiles.rs` with verified profiles for RetroArch, Dolphin, PCSX2, DuckStation, and custom user profiles |
+| Bounded Emulator Detection | Implemented | `src-tauri/src/emulators/detection.rs` checks known paths (`%APPDATA%`, `%PROGRAMFILES%`), Start Menu shortcuts, and `PATH` |
+| Safe Bounded ROM Scanner | Implemented | `src-tauri/src/emulators/rom_scanner.rs` with BFS queue, depth bounding, and profile extension matching |
+| CUE / BIN Multi-Track Grouping | Implemented | Parses `.cue` sheet `FILE` lines, claims `.bin` audio/data tracks, produces single playable candidate |
+| M3U Playlist & Multi-Disc Pairing | Implemented | Identifies `.m3u` playlists and groups `(Disc 1)`, `(Disc 2)`, `(CD 1)` sets into single clean candidates |
+| ROM Title Cleaning Heuristics | Implemented | `clean_rom_title` strips region tags `(USA)`, dump tags `[!]`, and disc markers for clean display titles |
+| Parameterized Emulated Launch Engine | Implemented | `src-tauri/src/launcher/mod.rs` expands `{rom}`, `{game_dir}`, `{emulator_dir}`, `{basename}`, `{core}` as individual argument vector entries (zero shell strings) |
+| RetroArch Core Validation & Enforcement | Implemented | Validates presence of `core_path` if `{core}` placeholder is used, failing with clean actionable error |
+| End-to-End Fake Emulator Launch Test | Implemented | `launcher::tests::test_e2e_fake_emulator_launch_and_argument_recording` verifies argument vector logging via batch script |
+| Emulator Management in Settings | Implemented | `src/components/SettingsModal.tsx` with auto-detect, profile card list, ready/missing/config status badges, profile editor, and test launch modal |
+| Scan & Import ROMs Modal | Implemented | `src/components/ScanRomsModal.tsx` with profile selection, system filter, candidate preview table, multi-track badges, and batch import |
+| Frontend Unit & Integration Tests | Implemented | 29/29 tests passing (`src/services/steam.test.ts`, `src/services/scanner.test.ts`, `src/services/emulators.test.ts`, `src/App.test.tsx`) via `vitest run` |
 | Frontend Production Build | Implemented | `pnpm build` (`tsc && vite build`) passed with zero errors, generating optimized bundle in `dist/` |
 | Rust Formatting Check | Implemented | `cargo fmt --check` passed with zero formatting diffs across all backend files |
-| Rust Native Unit & Integration Tests | Implemented | 41/41 tests passing (`cargo test --manifest-path src-tauri/Cargo.toml`), including 8 folder scanner fixture tests |
+| Rust Native Unit & Integration Tests | Implemented | 53/53 tests passing (`cargo test --manifest-path src-tauri/Cargo.toml`), including emulator detection, argument expansion, and E2E launch tests |
 | Rust Clippy Lints | Implemented | `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings` passed with 0 warnings |
-| Desktop App Packaging (MSI & NSIS) | Implemented | `pnpm tauri build` succeeded, generating `gameshelf.exe`, MSI installer (4.56 MiB), and NSIS installer (3.15 MiB) |
+| Desktop App Packaging (MSI & NSIS) | Implemented | `pnpm tauri build` succeeded, generating `gameshelf.exe`, MSI installer (4.69 MiB), and NSIS installer (3.25 MiB) |
 
 ---
 

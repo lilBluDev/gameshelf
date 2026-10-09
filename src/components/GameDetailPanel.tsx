@@ -92,6 +92,8 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
         folder = game.launch_action.working_dir || game.launch_action.path;
       } else if (game.launch_action.type === 'Shortcut') {
         folder = game.launch_action.working_dir || game.launch_action.target;
+      } else if (game.launch_action.type === 'EmulatedGame') {
+        folder = game.launch_action.rom_path;
       }
     }
 
@@ -163,6 +165,10 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
       currentPath = game.launch_action.target;
       currentArgs = game.launch_action.args.join(' ');
       currentWd = game.launch_action.working_dir || '';
+    } else if (game.launch_action.type === 'EmulatedGame') {
+      currentPath = game.launch_action.rom_path;
+      currentArgs = (game.launch_action.arg_overrides || []).join(' ');
+      currentWd = '';
     }
 
     setEditExePath(currentPath);
@@ -435,6 +441,16 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                     <div><span className="text-text font-semibold">Launch URI:</span> steam://rungameid/{game.launch_action.app_id}</div>
                     {game.install_dir && (
                       <div><span className="text-text font-semibold">Install Directory:</span> {game.install_dir}</div>
+                    )}
+                  </>
+                )}
+                {game.launch_action.type === 'EmulatedGame' && (
+                  <>
+                    <div><span className="text-text font-semibold">Source:</span> Emulated Game</div>
+                    <div><span className="text-text font-semibold">Profile ID:</span> {game.launch_action.profile_id}</div>
+                    <div><span className="text-text font-semibold">ROM File:</span> {game.launch_action.rom_path}</div>
+                    {game.launch_action.arg_overrides && game.launch_action.arg_overrides.length > 0 && (
+                      <div><span className="text-text font-semibold">Arg Overrides:</span> {game.launch_action.arg_overrides.join(' ')}</div>
                     )}
                   </>
                 )}

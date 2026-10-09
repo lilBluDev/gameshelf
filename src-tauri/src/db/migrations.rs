@@ -27,9 +27,14 @@ pub const MIGRATIONS: &[Migration] = &[
         description: "Add scan_sources table for folder scanner management",
         sql: include_str!("../../migrations/003_phase4_folder_scanner.sql"),
     },
+    Migration {
+        version: 4,
+        description: "Add emulator_profiles table for emulator and ROM management",
+        sql: include_str!("../../migrations/004_phase5_emulators.sql"),
+    },
 ];
 
-pub const LATEST_VERSION: u32 = 3;
+pub const LATEST_VERSION: u32 = 4;
 
 /// Get the highest applied migration version. Returns 0 if no migrations have been applied.
 pub fn get_current_version(conn: &Connection) -> AppResult<u32> {

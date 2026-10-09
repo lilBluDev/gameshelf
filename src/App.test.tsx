@@ -443,6 +443,102 @@ describe('GameShelf Shell & Phase 2 UI Tests', () => {
       expect(screen.getByRole('heading', { name: 'Scan Folder for Games' })).toBeDefined();
     });
   });
+
+  it('opens Scan ROMs modal from TopBar and verifies setup stage controls', async () => {
+    vi.spyOn(apiModule.api, 'listGames').mockResolvedValue({
+      games: [],
+      total: 0,
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Scan ROMs')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Scan ROMs'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Scan & Import ROMs')).toBeDefined();
+      expect(screen.getByText(/Discover ROMs with automatic multi-disc & multi-track grouping/i)).toBeDefined();
+      expect(screen.getByText('Target Emulator Profile')).toBeDefined();
+      expect(screen.getByPlaceholderText(/e\.g\. D:\\Emulation\\ROMs\\PS1/i)).toBeDefined();
+    });
+  });
+
+  it('navigates to Emulators settings tab, displays profiles, and opens profile configuration', async () => {
+    vi.spyOn(apiModule.api, 'listGames').mockResolvedValue({
+      games: [],
+      total: 0,
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Settings')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Settings'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Preferences')).toBeDefined();
+      expect(screen.getByText('Emulators')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Emulators'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Data-driven emulator CLI profiles, bounded detection/i)).toBeDefined();
+      expect(screen.getByText('Auto-Detect')).toBeDefined();
+      expect(screen.getByText('Add Profile')).toBeDefined();
+      expect(screen.getByText('RetroArch')).toBeDefined();
+      expect(screen.getByText('Dolphin')).toBeDefined();
+      expect(screen.getByText('PCSX2')).toBeDefined();
+      expect(screen.getByText('DuckStation')).toBeDefined();
+    });
+  });
+
+  it('renders emulated game in GameDetailPanel with profile and ROM details', async () => {
+    const emulatedGame: Game = {
+      id: 'game-emu-1',
+      title: 'Final Fantasy VII',
+      sort_title: 'final fantasy vii',
+      source_kind: 'Emulated',
+      launch_action: {
+        type: 'EmulatedGame',
+        profile_id: 'duckstation',
+        rom_path: 'C:/Emulation/PS1/Final Fantasy VII (USA) (Disc 1).cue',
+      },
+      status: 'Installed',
+      is_favorite: true,
+      is_hidden: false,
+      genres: ['RPG'],
+      tags: [],
+      user_tags: ['Classic'],
+      created_at: '2026-01-01T00:00:00Z',
+    };
+
+    vi.spyOn(apiModule.api, 'listGames').mockResolvedValue({
+      games: [emulatedGame],
+      total: 1,
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Final Fantasy VII')[0]).toBeDefined();
+    });
+
+    fireEvent.click(screen.getAllByText('Final Fantasy VII')[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Source:')).toBeDefined();
+      expect(screen.getByText('Emulated Game')).toBeDefined();
+      expect(screen.getByText('duckstation')).toBeDefined();
+      expect(screen.getByText('C:/Emulation/PS1/Final Fantasy VII (USA) (Disc 1).cue')).toBeDefined();
+    });
+  });
 });
+
 
 

@@ -49,6 +49,20 @@ GameShelf focuses on privacy, local-first performance, and elegant artwork prese
 - **Atomic Batch Import**: Selected games are committed in a single SQLite transaction, preserving all user metadata overrides.
 - **Managed Scan Folders**: Scan sources tracked in SQLite with one-click rescanning from Settings. Vanished games are marked `Missing` without deleting records or files.
 
+### Emulator Profiles & Emulated Games (Phase 5)
+- **Verified Data-Driven Profiles**: Pre-configured profiles for **RetroArch**, **Dolphin**, **PCSX2**, and **DuckStation** verified against official CLI documentation, plus a generic profile editor for user-defined emulators (RPCS3, PPSSPP, Cemu, mGBA, etc.).
+- **Bounded Auto-Detection**: Discovers installed emulators via known paths (`%APPDATA%`, `%PROGRAMFILES%`, `%LOCALAPPDATA%`), Start Menu shortcuts (`.lnk`), and system `PATH` with strict depth limits (depth <= 3) and zero full-disk traversal.
+- **System-Specific ROM Discovery**: Safe BFS directory scanning for profile-defined extensions (`.iso`, `.bin`, `.cue`, `.chd`, `.sfc`, `.nes`, etc.) with configurable recursion limits.
+- **Intelligent Track & Disc Grouping**:
+  - Parses `.cue` sheet files to automatically claim accompanying `.bin` audio/data tracks into a single playable candidate, hiding individual track clutter.
+  - Groups multi-disc sets (`(Disc 1)`, `(Disc 2)`, `(CD 1)`) and `.m3u` playlists into a single candidate, pointing to Disc 1 or the playlist.
+- **Title Cleansing**: Automatically strips region tags `(USA)`, dump tags `[!]`, and disc markers for clean display titles while retaining raw paths.
+- **Safe Parameterized Launching**: Launch action `LaunchAction::EmulatedGame { profile_id, rom_path, arg_overrides }` expanding individual placeholders (`{rom}`, `{game_dir}`, `{emulator_dir}`, `{basename}`, `{core}`) directly into `std::process::Command` argument vectors with zero shell string concatenation, preserving spaces and quotes.
+- **RetroArch Core Validation**: Enforces valid `core_path` when the `{core}` placeholder is present, preventing silent launch failures.
+- **Curation & Management UI**:
+  - In-app "Emulators" preferences panel to auto-detect emulators, view status (`Verified`, `ExecutableMissing`, `NeedsConfiguration`), edit templates/paths, run test launches, or delete custom profiles.
+  - "Scan & Import ROMs" modal with profile/system selector, candidate table with multi-track and multi-disc grouping badges, inline title editing, and batch import.
+
 ---
 
 ## Prerequisites
@@ -108,6 +122,5 @@ cargo test
 
 ## Current Limitations
  
-- **Artwork Provider**: SteamGridDB metadata and cover art fetching arrives in **Phase 4**.
-- **Emulator Manager**: Emulator profiles and ROM folder scanner arrive in **Phase 5**.
+- **Artwork Provider**: SteamGridDB metadata and cover art fetching arrives in **Phase 6**.
 - **Out of Scope (v1)**: Epic/GOG/EA store adapters, playtime tracking, directory watchers, telemetry, and accounts.

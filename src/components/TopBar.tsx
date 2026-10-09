@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, LayoutGrid, List, Plus, ArrowUpDown, X, FolderSearch } from 'lucide-react';
+import { Search, LayoutGrid, List, Plus, ArrowUpDown, X, FolderSearch, Disc } from 'lucide-react';
 import { SortField, ViewMode } from '../types/api';
 
 interface TopBarProps {
@@ -12,6 +12,7 @@ interface TopBarProps {
   totalGames: number;
   onOpenAddGame: () => void;
   onOpenScanFolder?: () => void;
+  onOpenScanRoms?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -24,6 +25,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   totalGames,
   onOpenAddGame,
   onOpenScanFolder,
+  onOpenScanRoms,
 }) => {
   return (
     <div className="h-14 border-b border-border bg-bg/50 backdrop-blur px-6 flex items-center justify-between gap-4 select-none flex-shrink-0">
@@ -108,6 +110,18 @@ export const TopBar: React.FC<TopBarProps> = ({
           >
             <FolderSearch className="w-3.5 h-3.5 text-accent" />
             <span>Scan Folder</span>
+          </button>
+        )}
+
+        {/* Scan ROMs Button (Phase 5) */}
+        {onOpenScanRoms && (
+          <button
+            onClick={onOpenScanRoms}
+            title="Scan & Import ROMs"
+            className="flex items-center gap-1.5 bg-surface border border-border hover:bg-surface-2 text-text rounded-control px-3 py-1.5 text-xs font-medium transition-all"
+          >
+            <Disc className="w-3.5 h-3.5 text-accent" />
+            <span>Scan ROMs</span>
           </button>
         )}
 

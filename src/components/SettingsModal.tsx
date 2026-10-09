@@ -13,12 +13,18 @@ import {
   Flame,
   RefreshCw,
   AlertTriangle,
+  AlertCircle,
   Folder,
   Filter,
   CheckCircle2,
   PlusCircle,
   Trash2,
   FolderPlus,
+  Play,
+  Edit2,
+  ExternalLink,
+  Disc,
+  RotateCw,
 } from 'lucide-react';
 import {
   AppInfo,
@@ -29,10 +35,13 @@ import {
   SkippedSteamApp,
   ThemeMode,
   ViewMode,
+  LaunchResult,
 } from '../types/api';
+import { EmulatorProfile, WorkingDirRule } from '../types/models';
 import { APP_CONFIG } from '../config/appConfig';
 import { api } from '../services/api';
 import { scannerService } from '../services/scanner';
+import { emulatorService } from '../services/emulators';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -42,6 +51,7 @@ interface SettingsModalProps {
   onUpdateSetting: (key: string, value: string) => Promise<void>;
   onRefreshGames?: () => void;
   onOpenScanFolder?: (path?: string) => void;
+  onOpenScanRoms?: (profileId?: string) => void;
 }
 
 type SettingsSection =
@@ -61,6 +71,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdateSetting,
   onRefreshGames,
   onOpenScanFolder,
+  onOpenScanRoms,
 }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance');
 
@@ -164,11 +175,232 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  // Emulators state & handlers (Phase 5)
+  const [emulatorProfiles, setEmulatorProfiles] = useState<EmulatorProfile[]>([]);
+  const [loadingEmulators, setLoadingEmulators] = useState<boolean>(false);
+  const [detectingEmulators, setDetectingEmulators] = useState<boolean>(false);
+  const [emulatorMessage, setEmulatorMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Edit / Create Profile Modal state
+  const [editingProfile, setEditingProfile] = useState<EmulatorProfile | null>(null);
+  const [isNewProfile, setIsNewProfile] = useState<boolean>(false);
+  const [editName, setEditName] = useState<string>('');
+  const [editSystems, setEditSystems] = useState<string>('');
+  const [editExtensions, setEditExtensions] = useState<string>('');
+  const [editExecutablePath, setEditExecutablePath] = useState<string>('');
+  const [editCorePath, setEditCorePath] = useState<string>('');
+  const [editTemplate, setEditTemplate] = useState<string>('');
+  const [editWorkingDirRule, setEditWorkingDirRule] = useState<'EmulatorDir' | 'RomDir' | 'Custom'>('EmulatorDir');
+  const [editCustomWorkingDir, setEditCustomWorkingDir] = useState<string>('');
+  const [savingProfile, setSavingProfile] = useState<boolean>(false);
+
+  // Test Launch state
+  const [testingProfile, setTestingProfile] = useState<EmulatorProfile | null>(null);
+  const [testFilePath, setTestFilePath] = useState<string>('');
+  const [testingLaunch, setTestingLaunch] = useState<boolean>(false);
+  const [testResult, setTestResult] = useState<LaunchResult | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+
+  const loadEmulatorProfiles = async () => {
+    try {
+      setLoadingEmulators(true);
+      const profiles = await emulatorService.getEmulatorProfiles();
+      setEmulatorProfiles(profiles);
+    } catch (err) {
+      console.warn('Failed to load emulator profiles:', err);
+    } finally {
+      setLoadingEmulators(false);
+    }
+  };
+
+  const handleDetectEmulators = async () => {
+    try {
+      setDetectingEmulators(true);
+      setEmulatorMessage(null);
+      const updated = await emulatorService.detectEmulators();
+      setEmulatorProfiles(updated);
+      const readyCount = updated.filter((p) => p.validation_status.status === 'Verified').length;
+      setEmulatorMessage({
+        type: 'success',
+        text: `Detection complete: ${readyCount} emulator(s) ready with verified executables.`,
+      });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setEmulatorMessage({
+        type: 'error',
+        text: e.message || 'Failed to detect emulators on system.',
+      });
+    } finally {
+      setDetectingEmulators(false);
+    }
+  };
+
+  const handleOpenEditProfile = (profile: EmulatorProfile) => {
+    setIsNewProfile(false);
+    setEditingProfile(profile);
+    setEditName(profile.name);
+    setEditSystems(profile.systems.join(', '));
+    setEditExtensions(profile.supported_extensions.join(', '));
+    setEditExecutablePath(profile.executable_path || '');
+    setEditCorePath(profile.core_path || '');
+    setEditTemplate(JSON.stringify(profile.argument_template));
+    if (typeof profile.working_dir_rule === 'string') {
+      setEditWorkingDirRule(profile.working_dir_rule as 'EmulatorDir' | 'RomDir');
+      setEditCustomWorkingDir('');
+    } else if (
+      profile.working_dir_rule &&
+      typeof profile.working_dir_rule === 'object' &&
+      'Custom' in profile.working_dir_rule
+    ) {
+      setEditWorkingDirRule('Custom');
+      setEditCustomWorkingDir((profile.working_dir_rule as { Custom: string }).Custom);
+    }
+  };
+
+  const handleOpenAddProfile = () => {
+    setIsNewProfile(true);
+    const newId = `custom-${Date.now().toString(36)}`;
+    const template = ['{rom}'];
+    const p: EmulatorProfile = {
+      id: newId,
+      name: 'Custom Emulator',
+      systems: ['Custom System'],
+      supported_extensions: ['.iso', '.bin', '.rom'],
+      argument_template: template,
+      working_dir_rule: 'EmulatorDir',
+      executable_path: '',
+      core_path: null,
+      is_builtin: false,
+      detection_hints: { known_paths: [], registry_keys: [], shortcut_names: [], executable_names: [] },
+      verification_source: null,
+      validation_status: { status: 'ExecutableMissing' },
+    };
+    setEditingProfile(p);
+    setEditName(p.name);
+    setEditSystems('Custom System');
+    setEditExtensions('.iso, .bin, .rom');
+    setEditExecutablePath('');
+    setEditCorePath('');
+    setEditTemplate('["{rom}"]');
+    setEditWorkingDirRule('EmulatorDir');
+    setEditCustomWorkingDir('');
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editingProfile) return;
+    if (!editName.trim()) {
+      setEmulatorMessage({ type: 'error', text: 'Profile name cannot be empty.' });
+      return;
+    }
+
+    let parsedTemplate: string[] = [];
+    try {
+      const trimmed = editTemplate.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        parsedTemplate = JSON.parse(trimmed);
+      } else {
+        parsedTemplate = trimmed.split(/\s+/).filter(Boolean);
+      }
+    } catch {
+      setEmulatorMessage({
+        type: 'error',
+        text: 'Invalid argument template JSON/format. Must be a JSON array like ["{rom}"] or space-separated tokens.',
+      });
+      return;
+    }
+
+    if (!parsedTemplate.some((t) => t.includes('{rom}'))) {
+      setEmulatorMessage({ type: 'error', text: 'Argument template must contain the {rom} placeholder.' });
+      return;
+    }
+
+    let rule: WorkingDirRule = 'EmulatorDir';
+    if (editWorkingDirRule === 'RomDir') {
+      rule = 'RomDir';
+    } else if (editWorkingDirRule === 'Custom') {
+      rule = { Custom: editCustomWorkingDir.trim() };
+    }
+
+    const updatedProfile: EmulatorProfile = {
+      ...editingProfile,
+      name: editName.trim(),
+      systems: editSystems
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      supported_extensions: editExtensions
+        .split(',')
+        .map((e) => {
+          const s = e.trim().toLowerCase();
+          return s.startsWith('.') ? s : `.${s}`;
+        })
+        .filter(Boolean),
+      argument_template: parsedTemplate,
+      working_dir_rule: rule,
+      executable_path: editExecutablePath.trim() || null,
+      core_path: editCorePath.trim() || null,
+    };
+
+    try {
+      setSavingProfile(true);
+      await emulatorService.saveEmulatorProfile(updatedProfile);
+      setEditingProfile(null);
+      await loadEmulatorProfiles();
+      setEmulatorMessage({ type: 'success', text: `Saved profile "${updatedProfile.name}".` });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setEmulatorMessage({ type: 'error', text: e.message || 'Failed to save emulator profile.' });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleDeleteProfile = async (id: string) => {
+    try {
+      await emulatorService.deleteEmulatorProfile(id);
+      await loadEmulatorProfiles();
+      setEmulatorMessage({ type: 'success', text: 'Custom emulator profile deleted.' });
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setEmulatorMessage({ type: 'error', text: e.message || 'Failed to delete profile.' });
+    }
+  };
+
+  const handleOpenTestLaunch = (profile: EmulatorProfile) => {
+    setTestingProfile(profile);
+    setTestFilePath('');
+    setTestResult(null);
+    setTestError(null);
+  };
+
+  const handleRunTestLaunch = async () => {
+    if (!testingProfile) return;
+    if (!testFilePath.trim()) {
+      setTestError('Please provide an existing ROM or test file path to launch.');
+      return;
+    }
+
+    try {
+      setTestingLaunch(true);
+      setTestError(null);
+      setTestResult(null);
+      const res = await emulatorService.testLaunchEmulator(testingProfile.id, testFilePath.trim());
+      setTestResult(res);
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setTestError(e.message || 'Test launch failed.');
+    } finally {
+      setTestingLaunch(false);
+    }
+  };
+
   useEffect(() => {
     if (isOpen && activeSection === 'integrations') {
       loadSteamStatus();
     } else if (isOpen && activeSection === 'library') {
       loadScanSources();
+    } else if (isOpen && activeSection === 'emulators') {
+      loadEmulatorProfiles();
     }
   }, [isOpen, activeSection]);
 
@@ -817,20 +1049,508 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             )}
 
-            {/* Emulators Section */}
+            {/* Emulators Section (Phase 5) */}
             {activeSection === 'emulators' && (
               <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-semibold text-text">Emulator Profiles</h4>
-                  <p className="text-xs text-muted">Configure standalone emulators, argument templates, and ROM folders.</p>
+                {emulatorMessage && (
+                  <div
+                    className={`p-3 rounded-control text-xs flex items-center justify-between border ${
+                      emulatorMessage.type === 'success'
+                        ? 'bg-success/10 border-success/30 text-success'
+                        : 'bg-danger/10 border-danger/30 text-danger'
+                    }`}
+                  >
+                    <span>{emulatorMessage.text}</span>
+                    <button
+                      onClick={() => setEmulatorMessage(null)}
+                      className="text-muted hover:text-text ml-2 text-xs"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-text">Emulator Profiles</h4>
+                    <p className="text-xs text-muted">
+                      Data-driven emulator CLI profiles, bounded detection, and argument expansion.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleDetectEmulators}
+                      disabled={detectingEmulators}
+                      className="flex items-center gap-1.5 bg-surface border border-border hover:bg-surface-2 text-text rounded-control px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
+                      title="Scan standard install paths, Start Menu shortcuts, and PATH"
+                    >
+                      <RotateCw
+                        className={`w-3.5 h-3.5 text-accent ${detectingEmulators ? 'animate-spin' : ''}`}
+                      />
+                      <span>{detectingEmulators ? 'Detecting...' : 'Auto-Detect'}</span>
+                    </button>
+                    <button
+                      onClick={handleOpenAddProfile}
+                      className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white rounded-control px-3 py-1.5 text-xs font-semibold shadow-sm transition-all"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>Add Profile</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="bg-surface-2/40 border border-border rounded-card p-6 text-center space-y-2">
-                  <Cpu className="w-8 h-8 text-muted mx-auto" />
-                  <div className="text-xs font-medium text-text">Emulator manager arrives in Phase 5</div>
-                  <p className="text-[11px] text-muted max-w-sm mx-auto">
-                    Supported emulators (RetroArch, RPCS3, Dolphin, DuckStation, PCSX2) with parameterized CLI placeholders.
-                  </p>
-                </div>
+
+                {loadingEmulators ? (
+                  <div className="py-12 text-center text-xs text-muted flex items-center justify-center gap-2">
+                    <RotateCw className="w-4 h-4 animate-spin text-accent" />
+                    <span>Loading emulator profiles...</span>
+                  </div>
+                ) : emulatorProfiles.length === 0 ? (
+                  <div className="bg-surface-2/40 border border-border rounded-card p-6 text-center text-xs text-muted">
+                    No emulator profiles found. Click &ldquo;Auto-Detect&rdquo; or &ldquo;Add Profile&rdquo;.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {emulatorProfiles.map((p) => {
+                      const isVerified = p.validation_status.status === 'Verified';
+                      const isMissing = p.validation_status.status === 'ExecutableMissing';
+                      const isNeedsConfig = p.validation_status.status === 'NeedsConfiguration';
+                      const isInvalid = p.validation_status.status === 'InvalidTemplate';
+
+                      return (
+                        <div
+                          key={p.id}
+                          className="bg-surface-2/40 border border-border rounded-card p-4 space-y-3 hover:border-border/80 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-control bg-surface border border-border flex items-center justify-center text-accent mt-0.5">
+                                <Cpu className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-bold text-text">{p.name}</span>
+                                  {p.is_builtin ? (
+                                    <span className="text-[10px] bg-accent/10 text-accent border border-accent/20 px-1.5 py-0.2 rounded font-medium">
+                                      Built-in
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] bg-surface text-muted border border-border px-1.5 py-0.2 rounded font-medium">
+                                      Custom
+                                    </span>
+                                  )}
+                                  {p.verification_source && (
+                                    <a
+                                      href={p.verification_source}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-[10px] text-muted hover:text-accent flex items-center gap-0.5 underline"
+                                      title="View verified CLI documentation source"
+                                    >
+                                      <span>CLI Docs</span>
+                                      <ExternalLink className="w-2.5 h-2.5" />
+                                    </a>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                  {p.systems.map((sys) => (
+                                    <span
+                                      key={sys}
+                                      className="text-[10px] bg-surface px-1.5 py-0.5 rounded border border-border text-muted"
+                                    >
+                                      {sys}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Status Badge */}
+                            <div>
+                              {isVerified && (
+                                <span className="text-[11px] font-semibold bg-success/10 text-success border border-success/30 px-2 py-0.5 rounded flex items-center gap-1">
+                                  <Check className="w-3 h-3" /> Ready
+                                </span>
+                              )}
+                              {isMissing && (
+                                <span className="text-[11px] font-medium bg-warning/10 text-warning border border-warning/30 px-2 py-0.5 rounded flex items-center gap-1">
+                                  <AlertTriangle className="w-3 h-3" /> Executable Missing
+                                </span>
+                              )}
+                              {isNeedsConfig && (
+                                <span
+                                  className="text-[11px] font-medium bg-warning/10 text-warning border border-warning/30 px-2 py-0.5 rounded flex items-center gap-1"
+                                  title={p.validation_status.detail}
+                                >
+                                  <AlertCircle className="w-3 h-3" /> Needs Config
+                                </span>
+                              )}
+                              {isInvalid && (
+                                <span
+                                  className="text-[11px] font-medium bg-danger/10 text-danger border border-danger/30 px-2 py-0.5 rounded flex items-center gap-1"
+                                  title={p.validation_status.detail}
+                                >
+                                  <AlertCircle className="w-3 h-3" /> Invalid
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Path Details */}
+                          <div className="space-y-1 bg-surface/60 rounded p-2.5 border border-border/50 text-[11px] font-mono">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-muted font-sans text-[10px]">Executable:</span>
+                              <span
+                                className={`truncate flex-1 text-right ${
+                                  p.executable_path ? 'text-text' : 'text-warning font-sans'
+                                }`}
+                              >
+                                {p.executable_path || 'Not located / Not configured'}
+                              </span>
+                            </div>
+                            {p.core_path !== undefined && (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-muted font-sans text-[10px]">Libretro Core:</span>
+                                <span
+                                  className={`truncate flex-1 text-right ${
+                                    p.core_path ? 'text-text' : 'text-muted font-sans'
+                                  }`}
+                                >
+                                  {p.core_path || 'None'}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-muted font-sans text-[10px]">Template:</span>
+                              <span className="text-accent truncate flex-1 text-right">
+                                {p.argument_template.join(' ')}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center justify-between pt-1 text-xs">
+                            <div className="text-[11px] text-muted truncate max-w-[280px]">
+                              Exts:{' '}
+                              <span className="text-text font-mono">
+                                {p.supported_extensions.join(', ')}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {onOpenScanRoms && (
+                                <button
+                                  onClick={() => {
+                                    onClose();
+                                    onOpenScanRoms(p.id);
+                                  }}
+                                  className="flex items-center gap-1 bg-surface border border-border hover:bg-surface-2 text-text px-2.5 py-1 rounded text-xs transition-colors"
+                                  title="Scan a ROM folder with this emulator profile"
+                                >
+                                  <Disc className="w-3 h-3 text-accent" />
+                                  <span>Scan ROMs</span>
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleOpenTestLaunch(p)}
+                                disabled={!p.executable_path}
+                                className="flex items-center gap-1 bg-surface border border-border hover:bg-surface-2 text-text px-2.5 py-1 rounded text-xs transition-colors disabled:opacity-40"
+                                title="Run test launch with a dummy or sample ROM file"
+                              >
+                                <Play className="w-3 h-3 text-accent" />
+                                <span>Test Launch</span>
+                              </button>
+                              <button
+                                onClick={() => handleOpenEditProfile(p)}
+                                className="flex items-center gap-1 bg-surface border border-border hover:bg-surface-2 text-text px-2.5 py-1 rounded text-xs transition-colors"
+                              >
+                                <Edit2 className="w-3 h-3 text-muted" />
+                                <span>Configure</span>
+                              </button>
+                              {!p.is_builtin && (
+                                <button
+                                  onClick={() => handleDeleteProfile(p.id)}
+                                  className="text-muted hover:text-danger p-1 rounded hover:bg-surface transition-colors"
+                                  title="Delete custom emulator profile"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Edit Profile Dialog Modal */}
+                {editingProfile && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+                    <div className="bg-surface border border-border rounded-dialog shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+                      <div className="flex items-center justify-between border-b border-border pb-3">
+                        <div className="flex items-center gap-2">
+                          <Cpu className="w-4 h-4 text-accent" />
+                          <h4 className="text-sm font-bold text-text">
+                            {isNewProfile ? 'Add Emulator Profile' : `Configure ${editingProfile.name}`}
+                          </h4>
+                        </div>
+                        <button
+                          onClick={() => setEditingProfile(null)}
+                          className="text-muted hover:text-text p-1"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-3 text-xs">
+                        {/* Profile Name */}
+                        <div className="space-y-1">
+                          <label className="font-semibold text-text">Profile Name</label>
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            placeholder="e.g. RetroArch, DuckStation, PCSX2"
+                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text focus:outline-none focus:border-accent"
+                          />
+                        </div>
+
+                        {/* Systems */}
+                        <div className="space-y-1">
+                          <label className="font-semibold text-text">Supported Systems</label>
+                          <input
+                            type="text"
+                            value={editSystems}
+                            onChange={(e) => setEditSystems(e.target.value)}
+                            placeholder="e.g. PlayStation, PlayStation 2 (comma-separated)"
+                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text focus:outline-none focus:border-accent"
+                          />
+                        </div>
+
+                        {/* Supported Extensions */}
+                        <div className="space-y-1">
+                          <label className="font-semibold text-text">Supported Extensions</label>
+                          <input
+                            type="text"
+                            value={editExtensions}
+                            onChange={(e) => setEditExtensions(e.target.value)}
+                            placeholder=".iso, .bin, .cue, .chd (comma-separated)"
+                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
+                          />
+                        </div>
+
+                        {/* Executable Path */}
+                        <div className="space-y-1">
+                          <label className="font-semibold text-text">Executable Path</label>
+                          <input
+                            type="text"
+                            value={editExecutablePath}
+                            onChange={(e) => setEditExecutablePath(e.target.value)}
+                            placeholder="C:\Emulators\RetroArch\retroarch.exe"
+                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
+                          />
+                        </div>
+
+                        {/* Core Path (Libretro) */}
+                        <div className="space-y-1">
+                          <label className="font-semibold text-text">
+                            Libretro Core Path (Optional / RetroArch)
+                          </label>
+                          <input
+                            type="text"
+                            value={editCorePath}
+                            onChange={(e) => setEditCorePath(e.target.value)}
+                            placeholder="C:\Emulators\RetroArch\cores\beetle_psx_libretro.dll"
+                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
+                          />
+                        </div>
+
+                        {/* Argument Template */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <label className="font-semibold text-text">Argument Template</label>
+                            <span className="text-[10px] text-muted">Must contain &#123;rom&#125;</span>
+                          </div>
+                          <input
+                            type="text"
+                            value={editTemplate}
+                            onChange={(e) => setEditTemplate(e.target.value)}
+                            placeholder='["-batch", "{rom}"] or -batch {rom}'
+                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
+                          />
+                          {/* Helper placeholder chips */}
+                          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                            <span className="text-[10px] text-muted">Insert placeholder:</span>
+                            {['{rom}', '{core}', '{game_dir}', '{emulator_dir}', '{basename}'].map(
+                              (ph) => (
+                                <button
+                                  key={ph}
+                                  type="button"
+                                  onClick={() => {
+                                    if (!editTemplate.includes(ph)) {
+                                      setEditTemplate((prev) =>
+                                        prev.trim().endsWith(']')
+                                          ? prev.replace(/]$/, `, "${ph}"]`)
+                                          : `${prev} ${ph}`
+                                      );
+                                    }
+                                  }}
+                                  className="text-[10px] bg-surface hover:bg-surface-2 border border-border text-accent px-1.5 py-0.5 rounded font-mono"
+                                >
+                                  {ph}
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Working Directory Rule */}
+                        <div className="space-y-1.5 pt-1">
+                          <label className="font-semibold text-text">Working Directory Rule</label>
+                          <div className="flex items-center gap-4 text-xs">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="wdirRule"
+                                value="EmulatorDir"
+                                checked={editWorkingDirRule === 'EmulatorDir'}
+                                onChange={() => setEditWorkingDirRule('EmulatorDir')}
+                                className="accent-accent"
+                              />
+                              <span>Emulator Directory</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="wdirRule"
+                                value="RomDir"
+                                checked={editWorkingDirRule === 'RomDir'}
+                                onChange={() => setEditWorkingDirRule('RomDir')}
+                                className="accent-accent"
+                              />
+                              <span>ROM Directory</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="wdirRule"
+                                value="Custom"
+                                checked={editWorkingDirRule === 'Custom'}
+                                onChange={() => setEditWorkingDirRule('Custom')}
+                                className="accent-accent"
+                              />
+                              <span>Custom</span>
+                            </label>
+                          </div>
+                          {editWorkingDirRule === 'Custom' && (
+                            <input
+                              type="text"
+                              value={editCustomWorkingDir}
+                              onChange={(e) => setEditCustomWorkingDir(e.target.value)}
+                              placeholder="C:\Emulators\WorkingDir"
+                              className="w-full bg-surface-2 border border-border rounded-control px-3 py-1 text-text font-mono mt-1 focus:outline-none"
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
+                        <button
+                          type="button"
+                          onClick={() => setEditingProfile(null)}
+                          className="px-3 py-1.5 rounded-control text-xs font-medium text-muted hover:text-text hover:bg-surface-2 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveProfile}
+                          disabled={savingProfile}
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-control text-xs font-semibold bg-accent hover:bg-accent-hover text-white transition-all disabled:opacity-50"
+                        >
+                          {savingProfile && <RotateCw className="w-3 h-3 animate-spin" />}
+                          <span>Save Profile</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Test Launch Modal Dialog */}
+                {testingProfile && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+                    <div className="bg-surface border border-border rounded-dialog shadow-2xl w-full max-w-md p-5 space-y-4">
+                      <div className="flex items-center justify-between border-b border-border pb-3">
+                        <div className="flex items-center gap-2">
+                          <Play className="w-4 h-4 text-accent" />
+                          <h4 className="text-sm font-bold text-text">
+                            Test Launch — {testingProfile.name}
+                          </h4>
+                        </div>
+                        <button
+                          onClick={() => setTestingProfile(null)}
+                          className="text-muted hover:text-text p-1"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-3 text-xs">
+                        <p className="text-muted">
+                          Provide an existing ROM or sample file to verify argument vector expansion
+                          and process execution.
+                        </p>
+
+                        <div className="space-y-1">
+                          <label className="font-semibold text-text">Test ROM / File Path</label>
+                          <input
+                            type="text"
+                            value={testFilePath}
+                            onChange={(e) => setTestFilePath(e.target.value)}
+                            placeholder="C:\Games\ROMs\test_game.iso"
+                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
+                          />
+                        </div>
+
+                        {testError && (
+                          <div className="p-3 rounded bg-danger/10 border border-danger/30 text-danger text-xs">
+                            {testError}
+                          </div>
+                        )}
+
+                        {testResult && (
+                          <div className="p-3 rounded bg-success/10 border border-success/30 text-success text-xs space-y-1">
+                            <div className="font-bold">Process Launched Successfully!</div>
+                            <div>PID: {testResult.pid}</div>
+                            <div className="font-mono text-[11px] text-text">
+                              {testResult.message}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
+                        <button
+                          onClick={() => setTestingProfile(null)}
+                          className="px-3 py-1.5 rounded-control text-xs font-medium text-muted hover:text-text hover:bg-surface-2 transition-colors"
+                        >
+                          Close
+                        </button>
+                        <button
+                          onClick={handleRunTestLaunch}
+                          disabled={testingLaunch || !testFilePath.trim()}
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-control text-xs font-semibold bg-accent hover:bg-accent-hover text-white transition-all disabled:opacity-50"
+                        >
+                          {testingLaunch ? (
+                            <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Play className="w-3.5 h-3.5" />
+                          )}
+                          <span>Run Launch</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

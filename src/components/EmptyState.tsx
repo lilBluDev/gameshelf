@@ -1,11 +1,12 @@
 import React from 'react';
-import { Gamepad2, SearchX, Plus, FolderSearch } from 'lucide-react';
+import { Gamepad2, SearchX, Plus, FolderSearch, Disc } from 'lucide-react';
 
 interface EmptyStateProps {
   isSearch: boolean;
   onClearSearch?: () => void;
   onOpenAddGame?: () => void;
   onOpenScanFolder?: () => void;
+  onOpenScanRoms?: () => void;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
@@ -13,6 +14,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   onClearSearch,
   onOpenAddGame,
   onOpenScanFolder,
+  onOpenScanRoms,
 }) => {
   if (isSearch) {
     return (
@@ -55,6 +57,15 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           >
             <FolderSearch className="w-4 h-4" />
             <span>Scan Folder for Games</span>
+          </button>
+        )}
+        {onOpenScanRoms && (
+          <button
+            onClick={onOpenScanRoms}
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-lg bg-surface border border-border hover:bg-surface-2 text-text text-xs font-medium transition-all"
+          >
+            <Disc className="w-4 h-4 text-accent" />
+            <span>Scan for ROMs</span>
           </button>
         )}
         {onOpenAddGame && (

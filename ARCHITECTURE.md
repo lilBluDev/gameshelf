@@ -36,7 +36,8 @@ game-launcher/
 │   │   ├── GameDetailPanel.tsx # Side panel with Play, Edit metadata, Config, and Steam App ID
 │   │   ├── AddGameModal.tsx    # Modal for manual file selection, auto-inspection, duplicate alert
 │   │   ├── ScanFolderModal.tsx # Recursive folder scanner curation modal with live progress & heuristics
-│   │   ├── SettingsModal.tsx   # Preference modal (General, Appearance, Steam Integrations, Managed Sources, Diagnostics)
+│   │   ├── ScanRomsModal.tsx   # ROM discovery, multi-disc/multi-track grouping curation modal
+│   │   ├── SettingsModal.tsx   # Preference modal (General, Appearance, Integrations, Emulators, Diagnostics)
 │   │   ├── EmptyState.tsx      # Friendly empty state when 0 games are loaded
 │   │   └── Toast.tsx           # Error and status toast notification container
 │   ├── config/
@@ -45,11 +46,13 @@ game-launcher/
 │   │   └── mockGames.ts        # Dev-only mock games, stripped from production builds
 │   ├── services/
 │   │   ├── api.ts              # Typed API invoke wrapper with pure browser fallback
+│   │   ├── emulators.ts        # Emulator profiles and ROM scanning service
+│   │   ├── emulators.test.ts   # Frontend unit tests for emulator profiles and ROM grouping
 │   │   ├── scanner.ts          # Scanner service with progress event listeners and mock fallback
 │   │   ├── scanner.test.ts     # Frontend unit tests for scanner service and candidate import
 │   │   └── steam.test.ts       # Fixture-based tests for VDF parser, library discovery, filtering
 │   ├── types/
-│   │   ├── api.ts              # TypeScript interfaces for commands, responses, and Steam status
+│   │   ├── api.ts              # TypeScript interfaces for commands, responses, ROM scanning
 │   │   └── models.ts           # Game, LaunchAction, ArtworkAsset, EmulatorProfile
 │   ├── utils/
 │   │   └── artwork.ts          # Deterministic gradient and title initials generator
@@ -62,10 +65,12 @@ game-launcher/
 │   ├── migrations/
 │   │   ├── 001_initial_schema.sql        # Core tables: games, overrides, artwork, etc.
 │   │   ├── 002_phase2_manual_library.sql # Added normalized_path, last_launched_at, indexes
-│   │   └── 003_phase4_folder_scanner.sql # Added scan_sources table and index
+│   │   ├── 003_phase4_folder_scanner.sql # Added scan_sources table and index
+│   │   └── 004_phase5_emulators.sql      # Full emulator_profiles schema and seed profiles
 │   ├── src/
 │   │   ├── commands/           # Typed Tauri IPC command handlers
 │   │   │   ├── app.rs          # get_app_info
+│   │   │   ├── emulators.rs    # get/save/delete profiles, detect, validate, scan_rom_folder, import
 │   │   │   ├── games.rs        # inspect_file, add_manual_game, launch_game, remove_game, etc.
 │   │   │   ├── scanner.rs      # start_folder_scan, cancel_folder_scan, import_scan_candidates, scan sources
 │   │   │   ├── settings.rs     # get_settings, set_setting
@@ -74,7 +79,12 @@ game-launcher/
 │   │   ├── db/                 # SQLite persistence layer
 │   │   │   ├── migrations.rs   # Migration runner with automatic DB backup
 │   │   │   ├── schema.rs       # Typed models (Game, LaunchAction tagged enum)
-│   │   │   └── mod.rs          # Database handle, WAL, upsert_steam_game, scan_sources, batch import
+│   │   │   └── mod.rs          # Database handle, WAL, upsert_steam_game, emulator profile CRUD
+│   │   ├── emulators/          # Emulator profiles, bounded detection, and ROM scanning
+│   │   │   ├── detection.rs    # Bounded detection (Start Menu shortcuts, PATH, known install folders)
+│   │   │   ├── profiles.rs     # Data models, argument templates, and verified built-in profiles
+│   │   │   ├── rom_scanner.rs  # Safe BFS ROM discovery, CUE/BIN multi-track claiming, multi-disc pairing
+│   │   │   └── mod.rs
 │   │   ├── integrations/       # Platform store and emulator integrations
 │   │   │   ├── steam/
 │   │   │   │   ├── filter.rs   # Non-game filtering rules engine and user override evaluation
@@ -185,4 +195,52 @@ Implemented in `src-tauri/src/db/mod.rs`:
 - Preserves existing games and user overrides when re-scanning.
 - Tracks roots in `scan_sources` (`id`, `path`, `normalized_path`, `depth`, `game_count`, `last_scanned_at`).
 - Rescanning checks existing folder-sourced games; vanished binaries are marked `GameStatus::Missing`, never deleted from the database.
+
+---
+
+## Emulator Profiles & Emulated Games Pipeline
+
+### 1. Data-Driven Profiles & Official Documentation Sources
+Implemented in `src-tauri/src/emulators/profiles.rs`:
+- **RetroArch**: Systems (`NES`, `SNES`, `Genesis`, `GBA`, `N64`, `PlayStation`), template `["-L", "{core}", "{rom}"]`, docs: [Libretro CLI docs](https://docs.libretro.com/development/retroarch/command-line-interface/).
+- **Dolphin**: Systems (`Nintendo GameCube`, `Nintendo Wii`), template `["-b", "-e", "{rom}"]`, docs: [Dolphin CLI options](https://wiki.dolphin-emu.org/index.php?title=Command_Line_Options).
+- **PCSX2**: Systems (`Sony PlayStation 2`), template `["-batch", "-nogui", "{rom}"]`, docs: [PCSX2 CLI usage](https://pcsx2.net/docs/usage/cli/).
+- **DuckStation**: Systems (`Sony PlayStation`), template `["-batch", "{rom}"]`, docs: [DuckStation arguments](https://github.com/stenzek/duckstation#command-line-arguments).
+
+### 2. Bounded Auto-Detection
+Implemented in `src-tauri/src/emulators/detection.rs`:
+- Evaluates known install paths with environment variable expansion (`%APPDATA%`, `%PROGRAMFILES%`, `%LOCALAPPDATA%`).
+- Checks user and system Start Menu shortcuts with bounded depth (`depth <= 3`).
+- Checks system `PATH` via Windows executable extensions (`.exe`).
+- Strictly avoids full-disk traversal.
+
+### 3. Smart ROM Directory Scanner & Grouping Engine
+Implemented in `src-tauri/src/emulators/rom_scanner.rs`:
+- **Safe Traversal**: Breadth-first traversal with configurable recursion depth limits (default 4).
+- **CUE / BIN Multi-Track Grouping**: Parses `.cue` sheet `FILE` definitions, claims all referenced `.bin` tracks, and creates a single candidate entry for the `.cue` file.
+- **M3U Playlist Grouping**: Identifies `.m3u` playlists, parses referenced disc files, and yields the playlist as the single candidate.
+- **Multi-Disc Auto-Grouping**: Detects disc patterns (`(Disc 1)`, `(Disc 2)`, `(CD 1)`, `_Disc1`) without playlists, groups them under a single clean title, and sets `rom_path` to Disc 1 with linked paths recorded.
+- **Title Cleansing**: Automatically strips region tags (`(USA)`, `(Europe)`, `(Japan)`), dump quality markers (`[!]`, `[b1]`, `(Rev 1)`), and disc suffixes.
+
+### 4. Parameterized Process Launch Execution
+Implemented in `src-tauri/src/launcher/mod.rs`:
+- Emulated games execute via `LaunchAction::EmulatedGame { profile_id, rom_path, arg_overrides }`.
+- Placeholders are expanded safely into individual entries of `Vec<String>` (never concatenated into shell strings):
+  - `{rom}`: Absolute path to the ROM file.
+  - `{game_dir}`: Directory containing the ROM file.
+  - `{emulator_dir}`: Directory containing the emulator executable.
+  - `{basename}`: Filename stem of the ROM file.
+  - `{core}`: Absolute path to the Libretro core (validated and enforced for RetroArch).
+- Process execution is verified through an end-to-end integration test (`test_e2e_fake_emulator_launch_and_argument_recording`) using a mock batch script that logs raw argument arrays.
+
+### 5. How to Add a New Emulator Profile
+1. **Via UI**:
+   - Open **Preferences** (`SettingsModal`) > **Emulators** tab.
+   - Click **Add Profile**.
+   - Enter name (e.g., `RPCS3`), supported systems (`Sony PlayStation 3`), extensions (`.pkg, .iso`), executable path, and argument template (e.g. `["--no-gui", "{rom}"]`).
+   - Click **Save Profile**.
+2. **Via Code (Built-in Profile)**:
+   - Add a new `EmulatorProfile` entry into `get_builtin_profiles()` in `src-tauri/src/emulators/profiles.rs`.
+   - Seed migration `004_phase5_emulators.sql` inserts default profiles into the SQLite `emulator_profiles` table on first run.
+
 

@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::db::schema::{Game, GameOverrides, GameStatus, LaunchAction, SourceKind};
 use crate::error::{AppError, AppResult};
-use crate::launcher::{validate_and_launch, LaunchResult};
+use crate::launcher::{validate_and_launch_with_db, LaunchResult};
 use crate::platform::windows::{inspect_game_file, normalize_path, InferredGameMetadata};
 use crate::AppState;
 
@@ -290,7 +290,7 @@ pub async fn launch_game(state: State<'_, AppState>, id: String) -> AppResult<La
         .get_game_by_id(&id)?
         .ok_or_else(|| AppError::Internal(format!("Game not found: {}", id)))?;
 
-    match validate_and_launch(&game.launch_action) {
+    match validate_and_launch_with_db(&game.launch_action, Some(&state.db)) {
         Ok(res) => {
             let _ = state.db.update_last_launched(&id);
             let _ = state.db.update_game_status(&id, GameStatus::Installed);

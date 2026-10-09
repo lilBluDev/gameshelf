@@ -195,3 +195,31 @@ export interface ScanSource {
   updated_at: string;
 }
 
+export interface RomCandidate {
+  id: string;
+  title: string;
+  rom_path: string;
+  system: string;
+  profile_id: string;
+  file_size_bytes: number;
+  grouped_files: string[];
+  selected: boolean;
+  is_duplicate: boolean;
+}
+
+export interface RomScanOptions {
+  folder_path: string;
+  profile_id: string;
+  system: string;
+  extra_extensions: string[];
+  max_depth: number;
+}
+
+export interface RomScanResult {
+  candidates: RomCandidate[];
+  total_files_scanned: number;
+  grouped_files_count: number;
+  duplicates_count: number;
+}
+
+

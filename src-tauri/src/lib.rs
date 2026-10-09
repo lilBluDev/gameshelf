@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod db;
+pub mod emulators;
 pub mod error;
 pub mod integrations;
 pub mod launcher;
@@ -89,6 +90,14 @@ pub fn run() {
             commands::scanner::remove_scan_source,
             commands::scanner::import_scan_candidates,
             commands::scanner::rescan_source,
+            commands::emulators::get_emulator_profiles,
+            commands::emulators::save_emulator_profile,
+            commands::emulators::delete_emulator_profile,
+            commands::emulators::detect_emulators,
+            commands::emulators::validate_emulator_path,
+            commands::emulators::scan_rom_folder,
+            commands::emulators::import_emulated_games,
+            commands::emulators::test_launch_emulator,
         ])
         .run(tauri::generate_context!())
         .expect("error while running GameShelf application");
