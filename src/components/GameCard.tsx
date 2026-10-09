@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Game } from '../types/models';
-import { getDeterministicGradient, getTitleInitials } from '../utils/artwork';
+import { getDeterministicGradient, getTitleInitials, resolveArtworkSrc } from '../utils/artwork';
 import { Heart, Flame, Monitor, Cpu } from 'lucide-react';
 
 interface GameCardProps {
@@ -16,9 +16,15 @@ export const GameCard: React.FC<GameCardProps> = ({
   onSelect,
   viewMode,
 }) => {
+  const [imgError, setImgError] = useState(false);
   const coverAsset = game.artwork?.cover;
+  const coverSrc = !imgError ? resolveArtworkSrc(coverAsset) : null;
   const gradient = getDeterministicGradient(game.title);
   const initials = getTitleInitials(game.title);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [coverAsset?.cached_path, coverAsset?.source_url]);
 
   const getSourceIcon = () => {
     switch (game.source_kind) {
@@ -48,10 +54,16 @@ export const GameCard: React.FC<GameCardProps> = ({
           {/* Mini cover thumbnail */}
           <div
             className="w-9 h-12 rounded-control overflow-hidden flex-shrink-0 flex items-center justify-center font-bold text-white text-xs shadow"
-            style={{ background: coverAsset?.cached_path ? undefined : gradient }}
+            style={{ background: coverSrc ? undefined : gradient }}
           >
-            {coverAsset?.cached_path ? (
-              <img src={coverAsset.cached_path} alt={game.title} className="w-full h-full object-cover" />
+            {coverSrc ? (
+              <img
+                src={coverSrc}
+                alt={game.title}
+                className="w-full h-full object-cover"
+                onError={() => setImgError(true)}
+                loading="lazy"
+              />
             ) : (
               <span>{initials}</span>
             )}
@@ -101,13 +113,14 @@ export const GameCard: React.FC<GameCardProps> = ({
       {/* 2:3 Aspect ratio container */}
       <div
         className="w-full aspect-[2/3] relative flex items-center justify-center overflow-hidden"
-        style={{ background: coverAsset?.cached_path ? undefined : gradient }}
+        style={{ background: coverSrc ? undefined : gradient }}
       >
-        {coverAsset?.cached_path ? (
+        {coverSrc ? (
           <img
-            src={coverAsset.cached_path}
+            src={coverSrc}
             alt={game.title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={() => setImgError(true)}
             loading="lazy"
           />
         ) : (

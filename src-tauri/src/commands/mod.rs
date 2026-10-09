@@ -1,4 +1,5 @@
 pub mod app;
+pub mod artwork;
 pub mod emulators;
 pub mod games;
 pub mod scanner;

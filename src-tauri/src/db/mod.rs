@@ -3,7 +3,7 @@ pub mod schema;
 
 use chrono::Utc;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -12,7 +12,7 @@ use crate::emulators::profiles::EmulatorProfile;
 use crate::emulators::rom_scanner::RomCandidate;
 use crate::error::{AppError, AppResult};
 use crate::scanner::{ConfidenceLevel, ScanCandidate, ScanSource};
-use schema::{Game, GameOverrides, GameStatus, LaunchAction, SourceKind};
+use schema::{ArtworkAsset, Game, GameOverrides, GameStatus, LaunchAction, SourceKind};
 
 #[derive(Clone)]
 pub struct Database {
@@ -203,8 +203,20 @@ impl Database {
         let mut stmt = conn.prepare(sql)?;
         let mut rows = stmt.query(params![id])?;
 
-        if let Some(row) = rows.next()? {
-            let game = Self::map_game_row(row)?;
+        let game_opt = if let Some(row) = rows.next()? {
+            Some(Self::map_game_row(row)?)
+        } else {
+            None
+        };
+        drop(rows);
+        drop(stmt);
+        drop(conn);
+
+        if let Some(mut game) = game_opt {
+            let artwork = self.get_selected_artwork(&game.id)?;
+            if !artwork.is_empty() {
+                game.artwork = Some(artwork);
+            }
             Ok(Some(game))
         } else {
             Ok(None)
@@ -254,7 +266,7 @@ impl Database {
         }
     }
 
-    /// Save user overrides (title, notes, tags, favorite, hidden).
+    /// Save user overrides (title, notes, tags, favorite, hidden, locked_fields).
     /// Stored separately so library refreshes never overwrite manual edits.
     pub fn update_game_overrides(&self, overrides: &GameOverrides) -> AppResult<()> {
         let conn = self.conn.lock().unwrap();
@@ -271,13 +283,17 @@ impl Database {
             .user_tags
             .as_ref()
             .map(|u| serde_json::to_string(u).unwrap_or_default());
+        let locked_fields_json = overrides
+            .locked_fields
+            .as_ref()
+            .map(|l| serde_json::to_string(l).unwrap_or_default());
 
         conn.execute(
             "INSERT INTO game_overrides (
                 game_id, title, sort_title, description, developer, publisher, release_year,
-                genres, tags, notes, user_tags, is_favorite, is_hidden, updated_at
+                genres, tags, notes, user_tags, is_favorite, is_hidden, locked_fields, updated_at
             ) VALUES (
-                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15
             ) ON CONFLICT(game_id) DO UPDATE SET
                 title = COALESCE(?2, title),
                 sort_title = COALESCE(?3, sort_title),
@@ -291,7 +307,8 @@ impl Database {
                 user_tags = COALESCE(?11, user_tags),
                 is_favorite = COALESCE(?12, is_favorite),
                 is_hidden = COALESCE(?13, is_hidden),
-                updated_at = ?14",
+                locked_fields = COALESCE(?14, locked_fields),
+                updated_at = ?15",
             params![
                 overrides.game_id,
                 overrides.title,
@@ -306,6 +323,7 @@ impl Database {
                 user_tags_json,
                 overrides.is_favorite.map(|f| if f { 1 } else { 0 }),
                 overrides.is_hidden.map(|h| if h { 1 } else { 0 }),
+                locked_fields_json,
                 now,
             ],
         )?;
@@ -903,6 +921,17 @@ impl Database {
             games.push(game);
         }
 
+        drop(rows);
+        drop(stmt);
+        drop(conn);
+
+        let all_artwork = self.get_all_selected_artwork()?;
+        for game in &mut games {
+            if let Some(art) = all_artwork.get(&game.id) {
+                game.artwork = Some(art.clone());
+            }
+        }
+
         Ok(games)
     }
 
@@ -956,6 +985,7 @@ impl Database {
             last_launched_at: row.get(21)?,
             normalized_path: row.get(22)?,
             created_at: row.get(23)?,
+            artwork: None,
         })
     }
 
@@ -1235,6 +1265,278 @@ impl Database {
         Ok(imported_count)
     }
 
+    /// Save an artwork asset (insert or update)
+    pub fn save_artwork_asset(&self, asset: &ArtworkAsset) -> AppResult<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO artwork_assets (
+                id, game_id, role, provider, provider_asset_id, source_url,
+                cached_path, width, height, mime_type, attribution, is_selected, created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+            ON CONFLICT(id) DO UPDATE SET
+                cached_path = COALESCE(?7, cached_path),
+                width = COALESCE(?8, width),
+                height = COALESCE(?9, height),
+                mime_type = COALESCE(?10, mime_type),
+                is_selected = ?12",
+            params![
+                asset.id,
+                asset.game_id,
+                asset.role,
+                asset.provider,
+                asset.provider_asset_id,
+                asset.source_url,
+                asset.cached_path,
+                asset.width,
+                asset.height,
+                asset.mime_type,
+                asset.attribution,
+                if asset.is_selected { 1 } else { 0 },
+                asset.created_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Retrieve all artwork assets associated with a game
+    pub fn get_artwork_assets(&self, game_id: &str) -> AppResult<Vec<ArtworkAsset>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, game_id, role, provider, provider_asset_id, source_url,
+                    cached_path, width, height, mime_type, attribution, is_selected, created_at
+             FROM artwork_assets
+             WHERE game_id = ?1
+             ORDER BY created_at DESC",
+        )?;
+        let rows = stmt.query_map(params![game_id], Self::map_artwork_row)?;
+        let mut assets = Vec::new();
+        for r in rows {
+            assets.push(r?);
+        }
+        Ok(assets)
+    }
+
+    /// Retrieve the currently selected artwork assets for a game mapped by role
+    pub fn get_selected_artwork(&self, game_id: &str) -> AppResult<HashMap<String, ArtworkAsset>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, game_id, role, provider, provider_asset_id, source_url,
+                    cached_path, width, height, mime_type, attribution, is_selected, created_at
+             FROM artwork_assets
+             WHERE game_id = ?1 AND is_selected = 1",
+        )?;
+        let rows = stmt.query_map(params![game_id], Self::map_artwork_row)?;
+        let mut map = HashMap::new();
+        for r in rows {
+            let asset = r?;
+            map.insert(asset.role.clone(), asset);
+        }
+        Ok(map)
+    }
+
+    /// Retrieve all selected artwork across the entire library in one query
+    pub fn get_all_selected_artwork(
+        &self,
+    ) -> AppResult<HashMap<String, HashMap<String, ArtworkAsset>>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, game_id, role, provider, provider_asset_id, source_url,
+                    cached_path, width, height, mime_type, attribution, is_selected, created_at
+             FROM artwork_assets
+             WHERE is_selected = 1",
+        )?;
+        let rows = stmt.query_map([], Self::map_artwork_row)?;
+        let mut result: HashMap<String, HashMap<String, ArtworkAsset>> = HashMap::new();
+        for r in rows {
+            let asset = r?;
+            result
+                .entry(asset.game_id.clone())
+                .or_default()
+                .insert(asset.role.clone(), asset);
+        }
+        Ok(result)
+    }
+
+    /// Select a specific artwork asset for a game (unselects others for the same role)
+    pub fn select_artwork_asset(&self, game_id: &str, asset_id: &str) -> AppResult<()> {
+        let conn = self.conn.lock().unwrap();
+        let role: Option<String> = conn
+            .query_row(
+                "SELECT role FROM artwork_assets WHERE id = ?1 AND game_id = ?2",
+                params![asset_id, game_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        if let Some(r) = role {
+            conn.execute(
+                "UPDATE artwork_assets SET is_selected = 0 WHERE game_id = ?1 AND role = ?2",
+                params![game_id, r],
+            )?;
+            conn.execute(
+                "UPDATE artwork_assets SET is_selected = 1 WHERE id = ?1",
+                params![asset_id],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Unselect artwork for a specific game and role
+    pub fn remove_selected_artwork(&self, game_id: &str, role: &str) -> AppResult<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE artwork_assets SET is_selected = 0 WHERE game_id = ?1 AND role = ?2",
+            params![game_id, role],
+        )?;
+        Ok(())
+    }
+
+    /// Get locked fields for a game
+    pub fn get_locked_fields(&self, game_id: &str) -> AppResult<HashSet<String>> {
+        let conn = self.conn.lock().unwrap();
+        let raw: Option<String> = conn
+            .query_row(
+                "SELECT locked_fields FROM game_overrides WHERE game_id = ?1",
+                params![game_id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .flatten();
+
+        if let Some(json) = raw {
+            let fields: Vec<String> = serde_json::from_str(&json).unwrap_or_default();
+            Ok(fields.into_iter().collect())
+        } else {
+            Ok(HashSet::new())
+        }
+    }
+
+    /// Set locked fields for a game
+    pub fn set_locked_fields(&self, game_id: &str, fields: &[String]) -> AppResult<()> {
+        let conn = self.conn.lock().unwrap();
+        let json = serde_json::to_string(fields).unwrap_or_else(|_| "[]".to_string());
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO game_overrides (game_id, locked_fields, updated_at)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(game_id) DO UPDATE SET locked_fields = ?2, updated_at = ?3",
+            params![game_id, json, now],
+        )?;
+        Ok(())
+    }
+
+    /// Update metadata from provider without overwriting locked fields or user overrides
+    #[allow(clippy::too_many_arguments)]
+    pub fn update_game_metadata_from_provider(
+        &self,
+        game_id: &str,
+        description: Option<&str>,
+        developer: Option<&str>,
+        publisher: Option<&str>,
+        release_year: Option<i32>,
+        genres: Option<&[String]>,
+        tags: Option<&[String]>,
+        match_confidence: Option<f64>,
+        provider_attribution: Option<&str>,
+    ) -> AppResult<()> {
+        let locked = self.get_locked_fields(game_id)?;
+        let conn = self.conn.lock().unwrap();
+        let now = Utc::now().to_rfc3339();
+
+        let (cur_desc, cur_dev, cur_pub, cur_year, cur_genres, cur_tags): (
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<i32>,
+            String,
+            String,
+        ) = conn.query_row(
+            "SELECT description, developer, publisher, release_year, genres, tags FROM games WHERE id = ?1",
+            params![game_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+        )?;
+
+        let final_desc = if locked.contains("description") {
+            cur_desc
+        } else {
+            description.map(|s| s.to_string()).or(cur_desc)
+        };
+        let final_dev = if locked.contains("developer") {
+            cur_dev
+        } else {
+            developer.map(|s| s.to_string()).or(cur_dev)
+        };
+        let final_pub = if locked.contains("publisher") {
+            cur_pub
+        } else {
+            publisher.map(|s| s.to_string()).or(cur_pub)
+        };
+        let final_year = if locked.contains("release_year") {
+            cur_year
+        } else {
+            release_year.or(cur_year)
+        };
+        let final_genres = if locked.contains("genres") {
+            cur_genres
+        } else {
+            genres
+                .map(|g| serde_json::to_string(g).unwrap_or_default())
+                .unwrap_or(cur_genres)
+        };
+        let final_tags = if locked.contains("tags") {
+            cur_tags
+        } else {
+            tags.map(|t| serde_json::to_string(t).unwrap_or_default())
+                .unwrap_or(cur_tags)
+        };
+
+        conn.execute(
+            "UPDATE games SET
+                description = ?1,
+                developer = ?2,
+                publisher = ?3,
+                release_year = ?4,
+                genres = ?5,
+                tags = ?6,
+                match_confidence = COALESCE(?7, match_confidence),
+                provider_attribution = COALESCE(?8, provider_attribution),
+                updated_at = ?9
+             WHERE id = ?10",
+            params![
+                final_desc,
+                final_dev,
+                final_pub,
+                final_year,
+                final_genres,
+                final_tags,
+                match_confidence,
+                provider_attribution,
+                now,
+                game_id,
+            ],
+        )?;
+
+        Ok(())
+    }
+
+    fn map_artwork_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ArtworkAsset> {
+        Ok(ArtworkAsset {
+            id: row.get(0)?,
+            game_id: row.get(1)?,
+            role: row.get(2)?,
+            provider: row.get(3)?,
+            provider_asset_id: row.get(4)?,
+            source_url: row.get(5)?,
+            cached_path: row.get(6)?,
+            width: row.get(7)?,
+            height: row.get(8)?,
+            mime_type: row.get(9)?,
+            attribution: row.get(10)?,
+            is_selected: row.get::<_, i32>(11)? == 1,
+            created_at: row.get(12)?,
+        })
+    }
+
     pub fn get_version(&self) -> AppResult<u32> {
         let conn = self.conn.lock().unwrap();
         migrations::get_current_version(&conn)
@@ -1282,6 +1584,7 @@ mod tests {
             last_launched_at: None,
             normalized_path: Some(path.to_lowercase()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
+            artwork: None,
         }
     }
 
@@ -1345,6 +1648,7 @@ mod tests {
             user_tags: Some(vec!["Speedrun".to_string()]),
             is_favorite: Some(true),
             is_hidden: None,
+            locked_fields: None,
             updated_at: "2026-01-02T00:00:00Z".to_string(),
         })
         .unwrap();
@@ -1419,6 +1723,7 @@ mod tests {
             last_launched_at: None,
             normalized_path: Some("c:/steam/steamapps/common/terraria".to_string()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
+            artwork: None,
         };
 
         // First insert
@@ -1441,6 +1746,7 @@ mod tests {
             user_tags: Some(vec!["Sandbox".to_string()]),
             is_favorite: Some(true),
             is_hidden: None,
+            locked_fields: None,
             updated_at: "2026-01-02T00:00:00Z".to_string(),
         })
         .unwrap();
@@ -1492,6 +1798,7 @@ mod tests {
             last_launched_at: None,
             normalized_path: Some("e:/external/steamapps/common/war thunder".to_string()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
+            artwork: None,
         };
 
         db.upsert_steam_game(&steam_game).unwrap();

@@ -63,6 +63,20 @@ GameShelf focuses on privacy, local-first performance, and elegant artwork prese
   - In-app "Emulators" preferences panel to auto-detect emulators, view status (`Verified`, `ExecutableMissing`, `NeedsConfiguration`), edit templates/paths, run test launches, or delete custom profiles.
   - "Scan & Import ROMs" modal with profile/system selector, candidate table with multi-track and multi-disc grouping badges, inline title editing, and batch import.
 
+### Metadata & Artwork Pipeline (Phase 6)
+- **SteamGridDB API v2 Integration**: Client supporting games search, grids (covers), heroes (banners), logos, and icons, with token-bucket rate limiting (4 req/sec) and automatic exponential backoff on HTTP 429.
+- **Secure OS Credential Storage**: User-provided API keys are stored in the Windows Credential Manager via the `keyring` crate. Secrets are never hardcoded, written to SQLite, or logged.
+- **Title Normalization & Matching Engine**: Cleans edition/version strings (`Remastered`, `GOTY`, `v1.0`), unifies Roman and Arabic numerals (`Doom II` = `Doom 2`), disambiguates sequels, extracts release years, and produces scored matches (`High`, `Medium`, `Low`).
+- **Atomic Validated Image Cache**:
+  - Enforces a 20MB file cap and allowed MIME types (`image/jpeg`, `image/png`, `image/webp`).
+  - Verifies image integrity by decoding image headers via the `image` crate.
+  - Downloads to `.tmp` files first, performing an atomic rename to final storage on verification.
+  - Disk cache management tools with usage reporting and safe cache clearing.
+- **Zero-IPC Asset Protocol Serving**: Uses Tauri's `assetProtocol` (`convertFileSrc`) with narrow scope (`$APPDATA`, `$CACHE`) and tight Content Security Policy. Never sends full image byte payloads across IPC.
+- **Field Locking & User Preference Protection**: Migration 5 added `locked_fields` to `game_overrides`. User-selected artwork roles and manual title/note overrides are strictly preserved across automated refreshes.
+- **Artwork Picker Modal**: Comprehensive in-app modal with role tabs (`Cover`, `Hero`, `Logo`, `Icon`), live search, candidate gallery, local file picker, field lock toggling, and artwork removal.
+- **Settings & Detail Panel Wiring**: Settings modal offers API key testing, save/remove, cache statistics, and privacy notes; `GameDetailPanel` renders hero banners and cover artwork with manual change triggers and one-click metadata refresh.
+
 ---
 
 ## Prerequisites

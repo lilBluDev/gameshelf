@@ -37,7 +37,8 @@ game-launcher/
 │   │   ├── AddGameModal.tsx    # Modal for manual file selection, auto-inspection, duplicate alert
 │   │   ├── ScanFolderModal.tsx # Recursive folder scanner curation modal with live progress & heuristics
 │   │   ├── ScanRomsModal.tsx   # ROM discovery, multi-disc/multi-track grouping curation modal
-│   │   ├── SettingsModal.tsx   # Preference modal (General, Appearance, Integrations, Emulators, Diagnostics)
+│   │   ├── ArtworkPickerModal.tsx # Artwork selection modal (Cover, Hero, Logo, Icon, live search, locks)
+│   │   ├── SettingsModal.tsx   # Preference modal (General, Appearance, Integrations, Emulators, Metadata, Diagnostics)
 │   │   ├── EmptyState.tsx      # Friendly empty state when 0 games are loaded
 │   │   └── Toast.tsx           # Error and status toast notification container
 │   ├── config/
@@ -46,6 +47,8 @@ game-launcher/
 │   │   └── mockGames.ts        # Dev-only mock games, stripped from production builds
 │   ├── services/
 │   │   ├── api.ts              # Typed API invoke wrapper with pure browser fallback
+│   │   ├── artwork.ts          # SteamGridDB and artwork cache management service
+│   │   ├── artwork.test.ts     # Frontend unit tests for artwork and metadata services
 │   │   ├── emulators.ts        # Emulator profiles and ROM scanning service
 │   │   ├── emulators.test.ts   # Frontend unit tests for emulator profiles and ROM grouping
 │   │   ├── scanner.ts          # Scanner service with progress event listeners and mock fallback
@@ -53,9 +56,10 @@ game-launcher/
 │   │   └── steam.test.ts       # Fixture-based tests for VDF parser, library discovery, filtering
 │   ├── types/
 │   │   ├── api.ts              # TypeScript interfaces for commands, responses, ROM scanning
+│   │   ├── artwork.ts          # Interfaces for candidates, cache stats, provider models
 │   │   └── models.ts           # Game, LaunchAction, ArtworkAsset, EmulatorProfile
 │   ├── utils/
-│   │   └── artwork.ts          # Deterministic gradient and title initials generator
+│   │   └── artwork.ts          # Deterministic gradient, title initials, and asset URL resolver
 │   ├── App.tsx                 # Root application container and state management
 │   ├── index.css               # Tailwind tokens, dark/light themes, reduced-motion rules
 │   └── main.tsx                # React DOM mount point
@@ -66,10 +70,15 @@ game-launcher/
 │   │   ├── 001_initial_schema.sql        # Core tables: games, overrides, artwork, etc.
 │   │   ├── 002_phase2_manual_library.sql # Added normalized_path, last_launched_at, indexes
 │   │   ├── 003_phase4_folder_scanner.sql # Added scan_sources table and index
-│   │   └── 004_phase5_emulators.sql      # Full emulator_profiles schema and seed profiles
+│   │   ├── 004_phase5_emulators.sql      # Full emulator_profiles schema and seed profiles
+│   │   └── 005_phase6_metadata_artwork.sql # Added locked_fields to overrides and asset indices
 │   ├── src/
+│   │   ├── cache/              # Local disk artwork caching & validation
+│   │   │   ├── artwork.rs      # Atomic temp download, size/MIME verification, decoder check, stats
+│   │   │   └── mod.rs
 │   │   ├── commands/           # Typed Tauri IPC command handlers
 │   │   │   ├── app.rs          # get_app_info
+│   │   │   ├── artwork.rs      # SGDB key, candidates, apply, select local, clear cache, refresh metadata
 │   │   │   ├── emulators.rs    # get/save/delete profiles, detect, validate, scan_rom_folder, import
 │   │   │   ├── games.rs        # inspect_file, add_manual_game, launch_game, remove_game, etc.
 │   │   │   ├── scanner.rs      # start_folder_scan, cancel_folder_scan, import_scan_candidates, scan sources
@@ -78,8 +87,8 @@ game-launcher/
 │   │   │   └── mod.rs
 │   │   ├── db/                 # SQLite persistence layer
 │   │   │   ├── migrations.rs   # Migration runner with automatic DB backup
-│   │   │   ├── schema.rs       # Typed models (Game, LaunchAction tagged enum)
-│   │   │   └── mod.rs          # Database handle, WAL, upsert_steam_game, emulator profile CRUD
+│   │   │   ├── schema.rs       # Typed models (Game, LaunchAction tagged enum, ArtworkAsset)
+│   │   │   └── mod.rs          # Database handle, WAL, artwork CRUD, locked fields, update from provider
 │   │   ├── emulators/          # Emulator profiles, bounded detection, and ROM scanning
 │   │   │   ├── detection.rs    # Bounded detection (Start Menu shortcuts, PATH, known install folders)
 │   │   │   ├── profiles.rs     # Data models, argument templates, and verified built-in profiles
@@ -94,9 +103,15 @@ game-launcher/
 │   │   │   └── mod.rs
 │   │   ├── launcher/           # Process execution engine
 │   │   │   └── mod.rs          # validate_and_launch via std::process::Command and protocol URIs
+│   │   ├── metadata/           # Provider integration & title matching
+│   │   │   ├── matching.rs     # Normalization, numeral canonicalization, sequel collision penalty
+│   │   │   ├── provider.rs     # MetadataProvider trait, ArtworkRole, GameCandidate, ArtworkCandidate
+│   │   │   ├── steamgriddb.rs  # SteamGridDB API v2 client, 4 req/sec token bucket, 429 retry backoff
+│   │   │   └── mod.rs
 │   │   ├── platform/           # Windows-specific system inspection
-│   │   │   ├── mod.rs
-│   │   │   └── windows.rs      # Path normalization, PE version info, lnk resolution, URI activation
+│   │   │   ├── credentials.rs  # Windows Credential Manager storage via keyring crate
+│   │   │   ├── windows.rs      # Path normalization, PE version info, lnk resolution, URI activation
+│   │   │   └── mod.rs
 │   │   ├── scanner/            # Filesystem folder scanner engine
 │   │   │   ├── classifier.rs   # Heuristic candidate classification, engine indicators, confidence scoring
 │   │   │   ├── rules.rs        # Built-in exclusion lists, skip rules (uninstallers, updaters, crashpad)
@@ -106,8 +121,10 @@ game-launcher/
 │   │   ├── logging.rs          # Structured rolling daily file logger (tracing)
 │   │   ├── lib.rs              # App setup, path resolution, and command registration
 │   │   └── main.rs             # Application entrypoint
+│   ├── tests/
+│   │   └── test_metadata_and_artwork.rs # Rust integration tests with mock HTTP server
 │   ├── Cargo.toml              # Rust crate dependencies
-│   ├── tauri.conf.json         # Tauri 2 window, security, CSP, and build settings
+│   ├── tauri.conf.json         # Tauri 2 window, security, asset protocol, CSP, and build settings
 │   └── build.rs                # Tauri build script
 └── IMPLEMENTATION_STATUS.md    # Living progress tracking and verification evidence
 ```
@@ -242,5 +259,51 @@ Implemented in `src-tauri/src/launcher/mod.rs`:
 2. **Via Code (Built-in Profile)**:
    - Add a new `EmulatorProfile` entry into `get_builtin_profiles()` in `src-tauri/src/emulators/profiles.rs`.
    - Seed migration `004_phase5_emulators.sql` inserts default profiles into the SQLite `emulator_profiles` table on first run.
+
+---
+
+## Metadata & Artwork Pipeline
+
+### 1. SteamGridDB API v2 Integration & Rate Limiting
+Implemented in `src-tauri/src/metadata/steamgriddb.rs`:
+- Implements the `MetadataProvider` trait covering game searches, cover grids (600×900, 2:3), hero banners (1920×620, 96:31), transparent PNG logos, and square icons.
+- **Token Bucket Rate Limiter**: Configured with a 260ms minimum inter-request interval (guaranteeing <= 4 requests/sec per SteamGridDB API guidelines).
+- **Retry Backoff on HTTP 429**: Transparently catches 429 responses, inspects `Retry-After` headers (or computes exponential backoff), and retries up to 3 times before failing gracefully.
+
+### 2. OS-Native Credential Security
+Implemented in `src-tauri/src/platform/credentials.rs`:
+- API keys are managed through the OS Credential Manager (`keyring` crate) under target `GameShelf` and account `steamgriddb_api_key`.
+- Zero credentials stored in plain SQLite files, JSON configuration, or log files.
+- Testing key validity checks `/api/v2/games/search/Terraria` without persisting unverified credentials.
+
+### 3. Title Normalization & Matching Engine
+Implemented in `src-tauri/src/metadata/matching.rs`:
+- **Title Cleansing**: Strips noise and tags such as `[Remastered]`, `(GOTY Edition)`, `Director's Cut`, and release version tokens like `v1.0`.
+- **Numeral Unification**: Roman numerals (`I`, `II`, `III`, `IV`, `V`) and Arabic numerals (`1`, `2`, `3`, `4`, `5`) are canonicalized to standard tokens during matching so `Doom II` and `Doom 2` achieve identical 1.0 similarity scores.
+- **Sequel Collision Penalty**: Explicitly checks numeric tokens; mismatched sequel numbers (e.g., `Doom` vs `Doom II` or `Final Fantasy VII` vs `Final Fantasy VIII`) receive a heavy score penalty (0.35 ceiling) to prevent incorrect sequel matching.
+- **Confidence Tiers**: Categorizes matches into `High` (>= 0.85 score), `Medium` (>= 0.60 score), or `Low` (< 0.60 score).
+
+### 4. Atomic Validated Image Caching
+Implemented in `src-tauri/src/cache/artwork.rs`:
+- **Safety Caps**: Rejects files exceeding 20MB.
+- **MIME & Header Verification**: Validates `Content-Type` against allowed types (`image/jpeg`, `image/png`, `image/webp`).
+- **Decoder Structure Check**: Parses the image structure in-memory via the `image` crate (`image::load_from_memory`) before committing to disk, rejecting corrupt or truncated files.
+- **Atomic File Writes**: Downloads to `<id>.tmp` first, and performs an atomic rename to the final destination upon successful decoding.
+- **Local File Import**: Supports importing custom user image files directly into the cache directory.
+- **Disk Management**: Provides cache size accounting and cache cleanup commands.
+
+### 5. Webview Asset Protocol Serving & CSP
+Configured in `src-tauri/tauri.conf.json` and `src/utils/artwork.ts`:
+- Tauri `assetProtocol` is enabled via `features = ["protocol-asset"]` on the `tauri` dependency.
+- Asset scope is strictly restricted to `["$APPDATA/**", "$CACHE/**"]`.
+- `convertFileSrc` transforms absolute cached file paths into `http://asset.localhost/...` URLs, serving images through native streaming without IPC memory overhead.
+- Fallback to remote source URLs or deterministic gradient initials on image error ensures no broken image icons ever appear in the UI.
+
+### 6. User Choice Protection & Field Locking
+Implemented in `src-tauri/migrations/005_phase6_metadata_artwork.sql` and `src-tauri/src/db/mod.rs`:
+- `game_overrides.locked_fields`: Stores an array of locked fields (e.g. `["cover", "hero", "title"]`).
+- When automatic metadata refreshes run, locked fields are skipped.
+- Manual edits and user-picked artwork are permanently preserved across provider rescans.
+
 
 

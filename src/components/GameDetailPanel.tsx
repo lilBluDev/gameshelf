@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Game } from '../types/models';
-import { getDeterministicGradient, getTitleInitials } from '../utils/artwork';
+import React, { useState, useEffect } from 'react';
+import { Game, ArtworkRole } from '../types/models';
+import { getDeterministicGradient, getTitleInitials, resolveArtworkSrc } from '../utils/artwork';
 import {
   X,
   Play,
@@ -14,8 +14,13 @@ import {
   Loader2,
   Tag,
   Clock,
+  Sparkles,
+  Palette,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { refreshGameMetadata } from '../services/artwork';
+import { ArtworkPickerModal } from './ArtworkPickerModal';
 
 interface GameDetailPanelProps {
   game: Game | null;
@@ -39,6 +44,13 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
   const [isEditingLaunch, setIsEditingLaunch] = useState(false);
   const [isConfirmingRemove, setIsConfirmingRemove] = useState(false);
 
+  // Artwork & Refresh states
+  const [isArtworkModalOpen, setIsArtworkModalOpen] = useState(false);
+  const [artworkRole, setArtworkRole] = useState<ArtworkRole>('cover');
+  const [isRefreshingMetadata, setIsRefreshingMetadata] = useState(false);
+  const [heroError, setHeroError] = useState(false);
+  const [coverError, setCoverError] = useState(false);
+
   // Metadata edit state
   const [editTitle, setEditTitle] = useState('');
   const [editNotes, setEditNotes] = useState('');
@@ -50,10 +62,50 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
   const [editArgs, setEditArgs] = useState('');
   const [editWorkingDir, setEditWorkingDir] = useState('');
 
+  useEffect(() => {
+    setHeroError(false);
+    setCoverError(false);
+  }, [game?.id, game?.artwork?.hero?.cached_path, game?.artwork?.cover?.cached_path]);
+
   if (!game) return null;
 
   const gradient = getDeterministicGradient(game.title);
   const initials = getTitleInitials(game.title);
+
+  const heroAsset = game.artwork?.hero;
+  const heroSrc = !heroError ? resolveArtworkSrc(heroAsset) : null;
+  const coverAsset = game.artwork?.cover;
+  const coverSrc = !coverError ? resolveArtworkSrc(coverAsset) : null;
+
+  // Handle Refresh Metadata & Artwork
+  const handleRefreshMetadata = async () => {
+    setIsRefreshingMetadata(true);
+    try {
+      const updated = await refreshGameMetadata(game.id, true);
+      onGameUpdated(updated);
+      onSuccess('Metadata Refreshed', `Artwork and metadata refreshed for "${game.title}".`);
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : String(err);
+      onError('Refresh Failed', msg);
+    } finally {
+      setIsRefreshingMetadata(false);
+    }
+  };
+
+  const handleArtworkChanged = async (_updatedGameId: string) => {
+    try {
+      const res = await api.listGames({ filter: 'all' });
+      const refreshed = res.games.find((g) => g.id === game.id);
+      if (refreshed) {
+        onGameUpdated(refreshed);
+      }
+    } catch {
+      // Ignored
+    }
+  };
 
   // Handle Launch Execution
   const handleLaunch = async () => {
@@ -218,11 +270,27 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
   return (
     <aside className="w-84 bg-surface border-l border-border flex flex-col justify-between h-full flex-shrink-0 overflow-y-auto select-none">
       <div>
-        {/* Header / Hero placeholder banner */}
+        {/* Header / Hero banner */}
         <div
           className="relative aspect-[96/31] w-full overflow-hidden flex items-center justify-center border-b border-border"
-          style={{ background: gradient }}
+          style={{ background: heroSrc ? undefined : gradient }}
         >
+          {heroSrc ? (
+            <>
+              <img
+                src={heroSrc}
+                alt={`${game.title} Hero`}
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={() => setHeroError(true)}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/30 to-transparent pointer-events-none" />
+            </>
+          ) : (
+            <span className="text-2xl font-black text-white/40 tracking-wider">
+              {initials}
+            </span>
+          )}
+
           {/* Top Controls Overlay */}
           <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10">
             <button
@@ -237,45 +305,88 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               <Heart className={`w-3.5 h-3.5 ${game.is_favorite ? 'fill-current' : ''}`} />
             </button>
 
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-control bg-bg/70 backdrop-blur border border-border text-muted hover:text-white transition-colors"
-              title="Close Panel"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => {
+                  setArtworkRole('hero');
+                  setIsArtworkModalOpen(true);
+                }}
+                className="p-1.5 rounded-control bg-bg/70 backdrop-blur border border-border text-muted hover:text-white transition-colors"
+                title="Change Hero Banner Artwork"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+              </button>
 
-          <span className="text-2xl font-black text-white/40 tracking-wider">
-            {initials}
-          </span>
+              <button
+                onClick={onClose}
+                className="p-1.5 rounded-control bg-bg/70 backdrop-blur border border-border text-muted hover:text-white transition-colors"
+                title="Close Panel"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Content Body */}
         <div className="p-4 space-y-4">
-          {/* Title & Platform header */}
-          <div>
-            <div className="flex items-start justify-between gap-2">
-              <h2 className="text-sm font-bold text-text leading-tight">{game.title}</h2>
-            </div>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className="text-[10px] px-2 py-0.5 rounded bg-surface-2 border border-border text-muted font-medium">
-                {game.source_kind}
-              </span>
-              {game.source_id && (
-                <span className="text-[10px] px-2 py-0.5 rounded bg-surface-2 border border-border text-muted font-mono">
-                  App ID: {game.source_id}
-                </span>
+          {/* Cover & Title Header */}
+          <div className="flex gap-3 items-start">
+            {/* 2:3 Cover preview with Change button */}
+            <div
+              className="relative group w-16 aspect-[2/3] rounded-control overflow-hidden border border-border shadow flex-shrink-0 flex items-center justify-center font-bold text-white text-xs select-none"
+              style={{ background: coverSrc ? undefined : gradient }}
+            >
+              {coverSrc ? (
+                <img
+                  src={coverSrc}
+                  alt={game.title}
+                  className="w-full h-full object-cover"
+                  onError={() => setCoverError(true)}
+                />
+              ) : (
+                <span>{initials}</span>
               )}
-              <span
-                className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                  game.status === 'Installed'
-                    ? 'bg-success/15 text-success border border-success/30'
-                    : 'bg-danger/15 text-danger border border-danger/30'
-                }`}
+              <button
+                onClick={() => {
+                  setArtworkRole('cover');
+                  setIsArtworkModalOpen(true);
+                }}
+                className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-[9px] text-white font-medium transition-opacity"
+                title="Change Cover Artwork"
               >
-                {game.status === 'Installed' ? 'Installed' : 'Missing / Unavailable'}
-              </span>
+                <Palette className="w-3.5 h-3.5 mb-0.5" />
+                <span>Change</span>
+              </button>
+            </div>
+
+            {/* Title & Platform header */}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-bold text-text leading-tight truncate" title={game.title}>
+                {game.title}
+              </h2>
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <span className="text-[10px] px-2 py-0.5 rounded bg-surface-2 border border-border text-muted font-medium">
+                  {game.source_kind}
+                </span>
+                {game.source_id && (
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-surface-2 border border-border text-muted font-mono">
+                    ID: {game.source_id}
+                  </span>
+                )}
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                    game.status === 'Installed'
+                      ? 'bg-success/15 text-success border border-success/30'
+                      : 'bg-danger/15 text-danger border border-danger/30'
+                  }`}
+                >
+                  {game.status === 'Installed' ? 'Installed' : 'Missing'}
+                </span>
+              </div>
+              <div className="text-[11px] text-muted truncate mt-1">
+                {game.developer || '—'} {game.release_year ? `• ${game.release_year}` : ''}
+              </div>
             </div>
           </div>
 
@@ -300,7 +411,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
           )}
 
           {/* Primary Action Button: Play */}
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <button
               onClick={handleLaunch}
               disabled={isLaunching}
@@ -328,6 +439,25 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               )}
             </button>
 
+            <button
+              onClick={handleRefreshMetadata}
+              disabled={isRefreshingMetadata}
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-control bg-surface-2 hover:bg-surface-2/80 border border-border text-xs text-text transition-colors font-medium disabled:opacity-50"
+              title="Refresh metadata and artwork from configured provider"
+            >
+              {isRefreshingMetadata ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
+                  <span>Refreshing Metadata...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 text-accent" />
+                  <span>Refresh Metadata & Artwork</span>
+                </>
+              )}
+            </button>
+
             {game.last_launched_at && (
               <div className="text-[10px] text-muted flex items-center justify-center gap-1 mt-1 font-mono">
                 <Clock className="w-3 h-3" />
@@ -337,7 +467,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
           </div>
 
           {/* Action Toolbar */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <button
               onClick={handleOpenFolder}
               title="Open Game Folder"
@@ -345,6 +475,18 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             >
               <FolderOpen className="w-4 h-4 text-accent" />
               <span>Folder</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setArtworkRole('cover');
+                setIsArtworkModalOpen(true);
+              }}
+              title="Change Game Artwork"
+              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-[11px]"
+            >
+              <Palette className="w-4 h-4 text-purple-400" />
+              <span>Artwork</span>
             </button>
 
             <button
@@ -408,6 +550,66 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Genres & Categories */}
+            {game.genres && game.genres.length > 0 && (
+              <div>
+                <div className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-1">
+                  Genres
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {game.genres.map((genre) => (
+                    <span
+                      key={genre}
+                      className="text-[10px] bg-surface-2 text-text px-2 py-0.5 rounded-full border border-border"
+                    >
+                      {genre}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Metadata Provenance & Matching */}
+            {game.provider_attribution && (
+              <div>
+                <div className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-1">
+                  Metadata Provenance
+                </div>
+                <div className="bg-surface-2/60 p-2.5 rounded-control border border-border text-[11px] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted">Provider:</span>
+                    <span className="font-semibold text-text capitalize">{game.provider_attribution}</span>
+                  </div>
+                  {game.match_confidence !== undefined && game.match_confidence !== null && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted">Confidence:</span>
+                        <span
+                          className={`font-semibold ${
+                            game.match_confidence >= 0.85
+                              ? 'text-success'
+                              : game.match_confidence >= 0.6
+                              ? 'text-warning'
+                              : 'text-muted'
+                          }`}
+                        >
+                          {game.match_confidence >= 0.85
+                            ? 'High'
+                            : game.match_confidence >= 0.6
+                            ? 'Medium'
+                            : 'Low'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted">Score:</span>
+                        <span className="font-mono text-muted">{Math.round(game.match_confidence * 100)}%</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Launch Action Info (Security & path review) */}
             <div>
@@ -685,6 +887,17 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal 4: Artwork Picker Modal */}
+      {isArtworkModalOpen && (
+        <ArtworkPickerModal
+          game={game}
+          isOpen={isArtworkModalOpen}
+          initialRole={artworkRole}
+          onClose={() => setIsArtworkModalOpen(false)}
+          onArtworkChanged={handleArtworkChanged}
+        />
       )}
     </aside>
   );

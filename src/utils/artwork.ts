@@ -31,3 +31,21 @@ export function getTitleInitials(title: string): string {
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return (words[0][0] + words[1][0]).toUpperCase();
 }
+
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { ArtworkAsset } from '../types/models';
+
+export function resolveArtworkSrc(asset?: ArtworkAsset | null): string | null {
+  if (!asset) return null;
+  if (asset.cached_path) {
+    try {
+      return convertFileSrc(asset.cached_path);
+    } catch {
+      return `http://asset.localhost/${encodeURIComponent(asset.cached_path)}`;
+    }
+  }
+  if (asset.source_url) {
+    return asset.source_url;
+  }
+  return null;
+}

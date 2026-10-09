@@ -25,6 +25,10 @@ import {
   ExternalLink,
   Disc,
   RotateCw,
+  Key,
+  Eye,
+  EyeOff,
+  HardDrive,
 } from 'lucide-react';
 import {
   AppInfo,
@@ -38,10 +42,19 @@ import {
   LaunchResult,
 } from '../types/api';
 import { EmulatorProfile, WorkingDirRule } from '../types/models';
+import { CacheStats } from '../types/artwork';
 import { APP_CONFIG } from '../config/appConfig';
 import { api } from '../services/api';
 import { scannerService } from '../services/scanner';
 import { emulatorService } from '../services/emulators';
+import {
+  clearArtworkCache,
+  getCacheStats,
+  getSteamGridDbStatus,
+  removeSteamGridDbApiKey,
+  setSteamGridDbApiKey,
+  testSteamGridDbConnection,
+} from '../services/artwork';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -82,6 +95,82 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [steamPathInput, setSteamPathInput] = useState('');
   const [steamMessage, setSteamMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [skippedApps, setSkippedApps] = useState<SkippedSteamApp[]>([]);
+
+  // SteamGridDB & Artwork state (Phase 6)
+  const [sgdbConfigured, setSgdbConfigured] = useState(false);
+  const [sgdbKeyInput, setSgdbKeyInput] = useState('');
+  const [showSgdbKey, setShowSgdbKey] = useState(false);
+  const [isTestingSgdb, setIsTestingSgdb] = useState(false);
+  const [sgdbMessage, setSgdbMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
+  const [isClearingCache, setIsClearingCache] = useState(false);
+
+  const loadMetadataSettings = async () => {
+    try {
+      const configured = await getSteamGridDbStatus();
+      setSgdbConfigured(configured);
+      const stats = await getCacheStats();
+      setCacheStats(stats);
+    } catch (e) {
+      console.warn('Failed to load metadata settings:', e);
+    }
+  };
+
+  const handleSaveSgdbKey = async () => {
+    if (!sgdbKeyInput.trim()) return;
+    try {
+      await setSteamGridDbApiKey(sgdbKeyInput.trim());
+      setSgdbConfigured(true);
+      setSgdbKeyInput('');
+      setSgdbMessage({ type: 'success', text: 'SteamGridDB API key saved securely in Windows Credential Manager.' });
+      await loadMetadataSettings();
+    } catch (e: any) {
+      setSgdbMessage({ type: 'error', text: e?.message || 'Failed to save API key.' });
+    }
+  };
+
+  const handleRemoveSgdbKey = async () => {
+    try {
+      await removeSteamGridDbApiKey();
+      setSgdbConfigured(false);
+      setSgdbKeyInput('');
+      setSgdbMessage({ type: 'success', text: 'SteamGridDB API key removed from Windows Credential Manager.' });
+      await loadMetadataSettings();
+    } catch (e: any) {
+      setSgdbMessage({ type: 'error', text: e?.message || 'Failed to remove API key.' });
+    }
+  };
+
+  const handleTestSgdb = async () => {
+    setIsTestingSgdb(true);
+    setSgdbMessage(null);
+    try {
+      const ok = await testSteamGridDbConnection(sgdbKeyInput.trim() || undefined);
+      if (ok) {
+        setSgdbMessage({ type: 'success', text: 'Connection successful! SteamGridDB API key is verified.' });
+      } else {
+        setSgdbMessage({ type: 'error', text: 'Connection failed. Please check the API key.' });
+      }
+    } catch (e: any) {
+      setSgdbMessage({ type: 'error', text: e?.message || 'Connection test failed.' });
+    } finally {
+      setIsTestingSgdb(false);
+    }
+  };
+
+  const handleClearCache = async () => {
+    setIsClearingCache(true);
+    try {
+      const count = await clearArtworkCache();
+      const updatedStats = await getCacheStats();
+      setCacheStats(updatedStats);
+      setSgdbMessage({ type: 'success', text: `Artwork cache cleared: ${count} cached file(s) removed.` });
+    } catch (e: any) {
+      setSgdbMessage({ type: 'error', text: e?.message || 'Failed to clear artwork cache.' });
+    } finally {
+      setIsClearingCache(false);
+    }
+  };
 
   // Managed folder scan sources state (Phase 4)
   const [scanSources, setScanSources] = useState<ScanSource[]>([]);
@@ -401,6 +490,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       loadScanSources();
     } else if (isOpen && activeSection === 'emulators') {
       loadEmulatorProfiles();
+    } else if (isOpen && activeSection === 'metadata') {
+      loadMetadataSettings();
     }
   }, [isOpen, activeSection]);
 
@@ -1554,19 +1645,186 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             )}
 
-            {/* Metadata & Artwork Section */}
+            {/* Metadata & Artwork Section (Phase 6) */}
             {activeSection === 'metadata' && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
                   <h4 className="text-sm font-semibold text-text">Metadata & Artwork Providers</h4>
-                  <p className="text-xs text-muted">Download covers, banners, logos, and icons for your games.</p>
-                </div>
-                <div className="bg-surface-2/40 border border-border rounded-card p-6 text-center space-y-2">
-                  <ImageIcon className="w-8 h-8 text-muted mx-auto" />
-                  <div className="text-xs font-medium text-text">SteamGridDB integration arrives in Phase 4</div>
-                  <p className="text-[11px] text-muted max-w-sm mx-auto">
-                    User-supplied API keys will be stored securely in Windows Credential Manager via keyring.
+                  <p className="text-xs text-muted">
+                    Configure community artwork providers and manage cached game covers, banners, logos, and icons.
                   </p>
+                </div>
+
+                {/* Status / Message Alert */}
+                {sgdbMessage && (
+                  <div
+                    className={`p-3 rounded-lg border text-xs flex items-center justify-between ${
+                      sgdbMessage.type === 'success'
+                        ? 'bg-success/10 border-success/30 text-success'
+                        : 'bg-danger/10 border-danger/30 text-danger'
+                    }`}
+                  >
+                    <span>{sgdbMessage.text}</span>
+                    <button
+                      onClick={() => setSgdbMessage(null)}
+                      className="hover:underline font-medium ml-2"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                {/* SteamGridDB API Key Card */}
+                <div className="bg-surface-2/40 border border-border rounded-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <Key className="w-4 h-4 text-accent" />
+                      <div>
+                        <h5 className="text-xs font-semibold text-text">SteamGridDB API v2</h5>
+                        <p className="text-[11px] text-muted">
+                          Official &amp; community game covers (2:3 portrait), heroes, logos, and icons.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {sgdbConfigured ? (
+                        <span className="flex items-center gap-1 text-[11px] font-medium text-success bg-success/10 border border-success/20 rounded px-2 py-0.5">
+                          <Check className="w-3 h-3" /> Configured
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-muted bg-surface-2 border border-border rounded px-2 py-0.5">
+                          Not configured
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-text block">
+                      API Key (Stored in Windows Credential Manager)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type={showSgdbKey ? 'text' : 'password'}
+                          value={sgdbKeyInput}
+                          onChange={(e) => setSgdbKeyInput(e.target.value)}
+                          placeholder={
+                            sgdbConfigured
+                              ? '••••••••••••••••••••••••••••••••'
+                              : 'Enter your SteamGridDB API key...'
+                          }
+                          className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 pr-9 text-xs text-text placeholder-muted focus:border-accent focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSgdbKey(!showSgdbKey)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-text"
+                          title={showSgdbKey ? 'Hide key' : 'Show key'}
+                        >
+                          {showSgdbKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={handleTestSgdb}
+                        disabled={isTestingSgdb || (!sgdbConfigured && !sgdbKeyInput.trim())}
+                        className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text hover:bg-surface-2 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {isTestingSgdb ? <RefreshCw className="w-3 h-3 animate-spin" /> : null}
+                        Test Connection
+                      </button>
+
+                      <button
+                        onClick={handleSaveSgdbKey}
+                        disabled={!sgdbKeyInput.trim()}
+                        className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover transition-colors disabled:opacity-50"
+                      >
+                        Save Key
+                      </button>
+
+                      {sgdbConfigured && (
+                        <button
+                          onClick={handleRemoveSgdbKey}
+                          className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/20 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] text-muted">
+                      Need a key? Generate one at{' '}
+                      <span className="font-mono text-accent">steamgriddb.com/profile/preferences/api</span>.
+                      Your key is securely kept in Windows Credential Manager and is never hardcoded, logged, or sent in telemetry.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Artwork Cache Management Card */}
+                <div className="bg-surface-2/40 border border-border rounded-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <HardDrive className="w-4 h-4 text-accent" />
+                      <div>
+                        <h5 className="text-xs font-semibold text-text">Artwork Disk Cache</h5>
+                        <p className="text-[11px] text-muted">
+                          Locally cached thumbnails, covers, and logos downloaded from providers.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-xs font-mono font-medium text-text">
+                        {cacheStats?.formatted_size || '0 B'}
+                      </div>
+                      <div className="text-[10px] text-muted">
+                        {cacheStats?.file_count || 0} cached file(s)
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                    <p className="text-[11px] text-muted max-w-md">
+                      Clearing the cache removes downloaded image files to reclaim disk space. User-selected local images
+                      in custom paths are preserved.
+                    </p>
+
+                    <button
+                      onClick={handleClearCache}
+                      disabled={isClearingCache || !cacheStats || cacheStats.file_count === 0}
+                      className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text hover:bg-surface-2 hover:border-danger hover:text-danger transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {isClearingCache ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                      Clear Cache
+                    </button>
+                  </div>
+                </div>
+
+                {/* Fallbacks & Privacy notice */}
+                <div className="rounded-lg bg-surface-2/20 border border-border/60 p-4 space-y-2 text-[11px] text-muted">
+                  <div className="flex items-center gap-1.5 font-medium text-text">
+                    <ShieldCheck className="w-3.5 h-3.5 text-accent" />
+                    <span>Fallbacks &amp; Privacy Statement</span>
+                  </div>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>
+                      <strong>Steam Fallback:</strong> For Steam games, official library capsule, header, and hero artwork
+                      is automatically resolved from Steam's public CDN even without a SteamGridDB key.
+                    </li>
+                    <li>
+                      <strong>Deterministic Fallbacks:</strong> Games without remote artwork display clean title initials
+                      with deterministic color gradients.
+                    </li>
+                    <li>
+                      <strong>Privacy:</strong> GameShelf is local-first. Game paths and metadata never leave your computer
+                      unless you search SteamGridDB.
+                    </li>
+                    <li>
+                      <strong>Attribution:</strong> Game covers and artwork provided by SteamGridDB and Steam CDN.
+                    </li>
+                  </ul>
                 </div>
               </div>
             )}

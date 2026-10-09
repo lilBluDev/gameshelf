@@ -74,6 +74,8 @@ pub struct Game {
     pub last_launched_at: Option<String>,
     pub normalized_path: Option<String>,
     pub created_at: String,
+    #[serde(default)]
+    pub artwork: Option<HashMap<String, ArtworkAsset>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,6 +93,8 @@ pub struct GameOverrides {
     pub user_tags: Option<Vec<String>>,
     pub is_favorite: Option<bool>,
     pub is_hidden: Option<bool>,
+    #[serde(default)]
+    pub locked_fields: Option<Vec<String>>,
     pub updated_at: String,
 }
 

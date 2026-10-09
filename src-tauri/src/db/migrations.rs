@@ -32,9 +32,14 @@ pub const MIGRATIONS: &[Migration] = &[
         description: "Add emulator_profiles table for emulator and ROM management",
         sql: include_str!("../../migrations/004_phase5_emulators.sql"),
     },
+    Migration {
+        version: 5,
+        description: "Add locked_fields to game_overrides and artwork indexes",
+        sql: include_str!("../../migrations/005_phase6_metadata_artwork.sql"),
+    },
 ];
 
-pub const LATEST_VERSION: u32 = 4;
+pub const LATEST_VERSION: u32 = 5;
 
 /// Get the highest applied migration version. Returns 0 if no migrations have been applied.
 pub fn get_current_version(conn: &Connection) -> AppResult<u32> {

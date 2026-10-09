@@ -25,7 +25,11 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https: data:; font-src 'self' data:; connect-src 'self' ipc:"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https: data:; font-src 'self' data:; connect-src 'self' ipc:",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**", "$CACHE/**"]
+      }
     }
   },
   "bundle": {

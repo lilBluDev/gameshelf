@@ -1,3 +1,4 @@
+pub mod cache;
 pub mod commands;
 pub mod db;
 pub mod emulators;
@@ -5,20 +6,24 @@ pub mod error;
 pub mod integrations;
 pub mod launcher;
 pub mod logging;
+pub mod metadata;
 pub mod platform;
 pub mod scanner;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use tauri::Manager;
 use tracing::info;
 
+use cache::artwork::ArtworkCache;
 use db::Database;
 
 pub struct AppState {
     pub db: Database,
     pub data_dir: PathBuf,
     pub log_dir: PathBuf,
-    pub scan_cancel_flag: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    pub scan_cancel_flag: Arc<std::sync::atomic::AtomicBool>,
+    pub artwork_cache: Arc<ArtworkCache>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -52,13 +57,15 @@ pub fn run() {
             // Initialize SQLite database and run versioned migrations
             let db_path = data_dir.join("gameshelf.db");
             let db = Database::new(&db_path)?;
-            let scan_cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let scan_cancel_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let artwork_cache = Arc::new(ArtworkCache::new(data_dir.join("artwork"))?);
 
             app.manage(AppState {
                 db,
                 data_dir,
                 log_dir,
                 scan_cancel_flag,
+                artwork_cache,
             });
 
             info!("GameShelf backend setup completed successfully");
@@ -98,6 +105,21 @@ pub fn run() {
             commands::emulators::scan_rom_folder,
             commands::emulators::import_emulated_games,
             commands::emulators::test_launch_emulator,
+            commands::artwork::get_steamgriddb_status,
+            commands::artwork::set_steamgriddb_api_key,
+            commands::artwork::remove_steamgriddb_api_key,
+            commands::artwork::test_steamgriddb_connection,
+            commands::artwork::search_metadata,
+            commands::artwork::get_artwork_candidates,
+            commands::artwork::apply_artwork_asset,
+            commands::artwork::select_local_artwork,
+            commands::artwork::remove_artwork_for_role,
+            commands::artwork::get_game_artwork,
+            commands::artwork::get_cache_stats,
+            commands::artwork::clear_artwork_cache,
+            commands::artwork::refresh_game_metadata,
+            commands::artwork::set_locked_fields,
+            commands::artwork::get_locked_fields,
         ])
         .run(tauri::generate_context!())
         .expect("error while running GameShelf application");

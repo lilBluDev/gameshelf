@@ -42,6 +42,7 @@ pub struct UpdateGamePayload {
     pub user_tags: Option<Vec<String>>,
     pub is_favorite: Option<bool>,
     pub is_hidden: Option<bool>,
+    pub locked_fields: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -190,6 +191,7 @@ pub async fn add_manual_game(
         last_launched_at: None,
         normalized_path: Some(normalized),
         created_at: chrono::Utc::now().to_rfc3339(),
+        artwork: None,
     };
 
     state.db.add_game(&game)?;
@@ -224,6 +226,7 @@ pub async fn update_game(
         user_tags: payload.user_tags,
         is_favorite: payload.is_favorite,
         is_hidden: payload.is_hidden,
+        locked_fields: payload.locked_fields,
         updated_at: chrono::Utc::now().to_rfc3339(),
     };
 

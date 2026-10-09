@@ -431,6 +431,7 @@ pub fn scan_steam_library(
                 last_launched_at: None,
                 normalized_path: Some(norm_path),
                 created_at: now.clone(),
+                artwork: None,
             };
 
             imported_games.push(game);

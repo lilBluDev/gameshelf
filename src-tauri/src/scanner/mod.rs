@@ -491,6 +491,7 @@ mod tests {
             user_tags: None,
             is_favorite: Some(true),
             is_hidden: None,
+            locked_fields: None,
             updated_at: chrono::Utc::now().to_rfc3339(),
         })
         .unwrap();

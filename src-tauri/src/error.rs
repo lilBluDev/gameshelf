@@ -23,6 +23,18 @@ pub enum AppError {
 
     #[error("Internal error: {0}")]
     Internal(String),
+
+    #[error("Keyring error: {0}")]
+    Keyring(String),
+
+    #[error("Network error: {0}")]
+    Network(String),
+
+    #[error("Artwork validation error: {0}")]
+    ArtworkValidation(String),
+
+    #[error("Provider error: {0}")]
+    Provider(String),
 }
 
 impl Serialize for AppError {
@@ -41,6 +53,10 @@ impl Serialize for AppError {
             AppError::SettingNotFound(_) => "SETTING_NOT_FOUND",
             AppError::InvalidArgument(_) => "INVALID_ARGUMENT",
             AppError::Internal(_) => "INTERNAL_ERROR",
+            AppError::Keyring(_) => "KEYRING_ERROR",
+            AppError::Network(_) => "NETWORK_ERROR",
+            AppError::ArtworkValidation(_) => "ARTWORK_VALIDATION_ERROR",
+            AppError::Provider(_) => "PROVIDER_ERROR",
         };
 
         state.serialize_field("code", code)?;
