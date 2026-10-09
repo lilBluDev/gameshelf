@@ -11,16 +11,26 @@ import {
 
 export type NavFilter = 'all' | 'favorites' | 'steam' | 'pc' | 'emulated';
 
+export interface SidebarCounts {
+  all?: number;
+  favorites?: number;
+  steam?: number;
+  pc?: number;
+  emulated?: number;
+}
+
 interface SidebarProps {
   activeFilter: NavFilter;
   onSelectFilter: (filter: NavFilter) => void;
   onOpenSettings: () => void;
+  counts?: SidebarCounts;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeFilter,
   onSelectFilter,
   onOpenSettings,
+  counts,
 }) => {
   const mainNavItems = [
     {
@@ -28,12 +38,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Library',
       icon: Gamepad2,
       enabled: true,
+      count: counts?.all,
     },
     {
       id: 'favorites' as NavFilter,
       label: 'Favorites',
       icon: Heart,
       enabled: true,
+      count: counts?.favorites,
     },
     {
       id: 'recent',
@@ -41,6 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Clock,
       enabled: false,
       reason: 'Not available yet (Playtime tracking out of scope)',
+      count: undefined,
     },
   ];
 
@@ -50,18 +63,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Steam Games',
       icon: Flame,
       enabled: true,
+      count: counts?.steam,
     },
     {
       id: 'pc' as NavFilter,
       label: 'PC Games',
       icon: Monitor,
       enabled: true,
+      count: counts?.pc,
     },
     {
       id: 'emulated' as NavFilter,
       label: 'Emulated',
       icon: Cpu,
       enabled: true,
+      count: counts?.emulated,
     },
   ];
 
@@ -98,14 +114,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => onSelectFilter(item.id as NavFilter)}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-control text-xs font-medium transition-colors ${
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-control text-xs font-medium transition-colors ${
                     isActive
                       ? 'bg-accent text-white shadow-sm'
                       : 'text-text hover:bg-surface-2 hover:text-white'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
+                  <div className="flex items-center gap-2.5">
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.count !== undefined && item.count > 0 && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-surface-2 text-muted border border-border'
+                      }`}
+                    >
+                      {item.count}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -125,14 +154,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => onSelectFilter(item.id as NavFilter)}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-control text-xs font-medium transition-colors ${
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-control text-xs font-medium transition-colors ${
                     isActive
                       ? 'bg-accent text-white shadow-sm'
                       : 'text-text hover:bg-surface-2 hover:text-white'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
+                  <div className="flex items-center gap-2.5">
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.count !== undefined && item.count > 0 && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-surface-2 text-muted border border-border'
+                      }`}
+                    >
+                      {item.count}
+                    </span>
+                  )}
                 </button>
               );
             })}

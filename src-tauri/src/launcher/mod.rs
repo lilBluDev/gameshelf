@@ -121,10 +121,38 @@ pub fn validate_and_launch(action: &LaunchAction) -> AppResult<LaunchResult> {
             })
         }
 
-        LaunchAction::Steam { app_id } => Err(AppError::Internal(format!(
-            "Steam launch integration (App ID {}) is scheduled for Phase 4.",
-            app_id
-        ))),
+        LaunchAction::Steam { app_id } => {
+            if *app_id == 0 {
+                return Err(AppError::Internal(
+                    "Invalid Steam App ID: must be a positive integer.".to_string(),
+                ));
+            }
+
+            // Verify Steam installation is found on system
+            let steam_dir = crate::integrations::steam::scanner::detect_steam_installation(None);
+            if steam_dir.is_none() {
+                return Err(AppError::Internal(
+                    "Steam installation could not be located on this system. Please check your Steam installation or configure the Steam directory in Settings > Integrations.".to_string(),
+                ));
+            }
+
+            let uri = crate::platform::windows::build_steam_run_uri(*app_id)
+                .map_err(AppError::Internal)?;
+
+            info!(
+                app_id = %app_id,
+                uri = %uri,
+                "Launching Steam game via protocol activation"
+            );
+
+            crate::platform::windows::launch_uri(&uri)?;
+
+            Ok(LaunchResult {
+                success: true,
+                pid: None,
+                message: format!("Triggered Steam launch for App ID {}", app_id),
+            })
+        }
 
         LaunchAction::EmulatedGame { profile_id, .. } => Err(AppError::Internal(format!(
             "Emulation runner for profile '{}' is scheduled for Phase 5.",
@@ -179,5 +207,16 @@ mod tests {
 
         // Validating action points to an existing file
         assert!(file_path.exists());
+    }
+
+    #[test]
+    fn test_launch_validation_steam_invalid_app_id() {
+        let action = LaunchAction::Steam { app_id: 0 };
+        let res = validate_and_launch(&action);
+        assert!(res.is_err());
+        assert!(res
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid Steam App ID"));
     }
 }

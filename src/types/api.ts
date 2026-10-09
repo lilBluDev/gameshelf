@@ -92,3 +92,50 @@ export interface LaunchResult {
   pid: number | null;
   message: string;
 }
+
+export interface SteamLibraryFolder {
+  path: string;
+  normalized_path: string;
+  label: string | null;
+  is_accessible: boolean;
+  is_enabled: boolean;
+  game_count: number;
+}
+
+export interface SteamFilterRule {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
+export interface SteamFilterConfig {
+  rules: SteamFilterRule[];
+  explicit_included_app_ids: number[];
+  explicit_excluded_app_ids: number[];
+}
+
+export interface SkippedSteamApp {
+  app_id: number;
+  name: string;
+  library_path: string;
+  reason: string;
+}
+
+export interface SteamScanResult {
+  steam_path: string | null;
+  libraries: SteamLibraryFolder[];
+  imported_games: Game[];
+  skipped_apps: SkippedSteamApp[];
+  warnings: string[];
+}
+
+export interface SteamStatusResponse {
+  is_installed: boolean;
+  steam_path: string | null;
+  libraries: SteamLibraryFolder[];
+  filter_config: SteamFilterConfig;
+  last_scanned_at: string | null;
+  total_imported_games: number;
+  warnings: string[];
+}

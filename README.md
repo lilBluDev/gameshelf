@@ -29,6 +29,17 @@ GameShelf focuses on privacy, local-first performance, and elegant artwork prese
 - **Explorer Integration**: "Open Folder" button reveals the installed game directory directly in Windows File Explorer.
 - **Safe Game Removal**: "Remove from Library" deletes database records only, leaving game files on disk untouched.
 
+### Steam Discovery and Launching (Phase 3)
+- **Zero-Dependency Local Steam Discovery**: Detects local Steam via Windows Registry (`HKCU`/`HKLM`), standard system folders, or custom user-configured path without any Web API key or login credentials.
+- **Multi-Library Discovery**: Parses `steamapps/libraryfolders.vdf` across all drives, supporting both legacy flat and modern nested formats.
+- **Manifest Parser (`.acf`)**: High-performance recursive descent VDF parser correctly handling quoted strings, comments, escaped Windows paths, and case-insensitive keys.
+- **Installed Status Verification**: Validates `StateFlags` and checks that the game folder exists before marking as `Installed`. Missing or disconnected libraries mark games as `Missing` without deleting them.
+- **Explainable Non-Game Filtering**: Filters Steamworks Common Redistributables, Proton/Linux runtimes, SDKs, and dedicated server tools with editable rule toggles and explicit App ID overrides.
+- **Idempotent Refresh**: Re-scanning updates installation status and paths without overwriting user-edited titles, notes, or tags.
+- **Official Protocol Launch**: Launches Steam titles strictly via validated `steam://rungameid/<appid>` protocol URIs through the platform layer (never raw binaries).
+- **Integrations Settings & Library Toggles**: Settings panel displays Steam status, detected libraries with individual enable/disable checkboxes, filter rule toggles, scan warnings, and a "Rescan Steam Library" trigger.
+- **Real-Time Steam Badge Counter**: Sidebar navigation displays live counts of detected Steam games.
+
 ---
 
 ## Prerequisites
@@ -89,6 +100,6 @@ cargo test
 ## Current Limitations
 
 - **Visual Studio C++ Build Tools**: Linking Rust executables requires Visual Studio C++ Build Tools (`link.exe` and Windows SDK) installed with admin rights.
-- **Steam & ROM Scanners**: Automated folder scanners for Steam library folders and ROM folders arrive in Phase 3+.
-- **Artwork Provider**: SteamGridDB metadata and cover art fetching arrives in Phase 3.
+- **Artwork Provider**: SteamGridDB metadata and cover art fetching arrives in **Phase 4**.
+- **Emulator Manager**: Emulator profiles and ROM folder scanner arrive in **Phase 5**.
 - **Out of Scope (v1)**: Epic/GOG/EA store adapters, playtime tracking, directory watchers, telemetry, and accounts.

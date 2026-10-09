@@ -207,6 +207,35 @@ export const App: React.FC = () => {
     }
   }, [settings.grid_card_size]);
 
+  // Count games by category for real sidebar badges
+  const counts = useMemo(() => {
+    return {
+      all: games.length,
+      favorites: games.filter((g) => g.is_favorite).length,
+      steam: games.filter((g) => g.source_kind === 'Steam').length,
+      pc: games.filter(
+        (g) =>
+          g.source_kind === 'Standalone' ||
+          g.source_kind === 'Shortcut' ||
+          g.source_kind === 'Manual'
+      ).length,
+      emulated: games.filter((g) => g.source_kind === 'Emulated').length,
+    };
+  }, [games]);
+
+  const handleRefreshGames = async () => {
+    try {
+      const res = await api.listGames({ filter: 'all' });
+      setGames(res.games);
+      if (selectedGame) {
+        const refreshed = res.games.find((g) => g.id === selectedGame.id);
+        if (refreshed) setSelectedGame(refreshed);
+      }
+    } catch (err: unknown) {
+      console.warn('Failed to refresh games:', err);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg text-text">
       {/* 1. Window Title Bar */}
@@ -222,6 +251,7 @@ export const App: React.FC = () => {
             setSelectedGame(null);
           }}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          counts={counts}
         />
 
         {/* Center Content Workspace */}
@@ -312,6 +342,7 @@ export const App: React.FC = () => {
         appInfo={appInfo}
         settings={settings}
         onUpdateSetting={handleUpdateSetting}
+        onRefreshGames={handleRefreshGames}
       />
 
       {/* Toast Messages */}

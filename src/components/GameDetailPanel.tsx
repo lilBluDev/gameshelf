@@ -252,10 +252,15 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             <div className="flex items-start justify-between gap-2">
               <h2 className="text-sm font-bold text-text leading-tight">{game.title}</h2>
             </div>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-[10px] px-2 py-0.5 rounded bg-surface-2 border border-border text-muted font-medium">
                 {game.source_kind}
               </span>
+              {game.source_id && (
+                <span className="text-[10px] px-2 py-0.5 rounded bg-surface-2 border border-border text-muted font-mono">
+                  App ID: {game.source_id}
+                </span>
+              )}
               <span
                 className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                   game.status === 'Installed'
@@ -263,7 +268,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                     : 'bg-danger/15 text-danger border border-danger/30'
                 }`}
               >
-                {game.status === 'Installed' ? 'Installed' : 'Missing File'}
+                {game.status === 'Installed' ? 'Installed' : 'Missing / Unavailable'}
               </span>
             </div>
           </div>
@@ -420,6 +425,16 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                     <div><span className="text-text font-semibold">Shortcut Target:</span> {game.launch_action.target}</div>
                     {game.launch_action.args.length > 0 && (
                       <div><span className="text-text font-semibold">Args:</span> {game.launch_action.args.join(' ')}</div>
+                    )}
+                  </>
+                )}
+                {game.launch_action.type === 'Steam' && (
+                  <>
+                    <div><span className="text-text font-semibold">Source:</span> Steam (Official Client)</div>
+                    <div><span className="text-text font-semibold">App ID:</span> {game.launch_action.app_id}</div>
+                    <div><span className="text-text font-semibold">Launch URI:</span> steam://rungameid/{game.launch_action.app_id}</div>
+                    {game.install_dir && (
+                      <div><span className="text-text font-semibold">Install Directory:</span> {game.install_dir}</div>
                     )}
                   </>
                 )}

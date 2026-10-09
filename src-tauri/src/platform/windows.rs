@@ -319,6 +319,58 @@ pub fn inspect_game_file<P: AsRef<Path>>(file_path: P) -> Result<InferredGameMet
     Err(format!("Unsupported file extension: .{}", ext))
 }
 
+/// Validate positive Steam App ID
+pub fn is_valid_steam_app_id(app_id: u32) -> bool {
+    app_id > 0
+}
+
+/// Construct verified steam://rungameid/<appid> URI
+pub fn build_steam_run_uri(app_id: u32) -> Result<String, String> {
+    if !is_valid_steam_app_id(app_id) {
+        return Err(format!(
+            "Invalid Steam App ID {}: must be a positive integer",
+            app_id
+        ));
+    }
+    Ok(format!("steam://rungameid/{}", app_id))
+}
+
+/// Activate an allow-listed protocol URI on Windows (steam://rungameid/ only)
+pub fn launch_uri(uri: &str) -> crate::error::AppResult<()> {
+    if !uri.starts_with("steam://rungameid/") {
+        return Err(crate::error::AppError::Internal(format!(
+            "Disallowed protocol URI '{}'. Only 'steam://rungameid/' is permitted.",
+            uri
+        )));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let status = std::process::Command::new("rundll32.exe")
+            .args(["url.dll,FileProtocolHandler", uri])
+            .status()
+            .map_err(|e| {
+                crate::error::AppError::Internal(format!("Failed to activate URI: {}", e))
+            })?;
+
+        if !status.success() {
+            return Err(crate::error::AppError::Internal(format!(
+                "URI activation exited with status {:?}",
+                status
+            )));
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err(crate::error::AppError::Internal(
+            "Platform URI activation is only supported on Windows host".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -351,5 +403,31 @@ mod tests {
             infer_title_from_stem("HollowKnight_Shipping"),
             "HollowKnight"
         );
+    }
+
+    #[test]
+    fn test_build_steam_run_uri_valid() {
+        let uri = build_steam_run_uri(105600).unwrap();
+        assert_eq!(uri, "steam://rungameid/105600");
+    }
+
+    #[test]
+    fn test_build_steam_run_uri_rejects_zero() {
+        let res = build_steam_run_uri(0);
+        assert!(res.is_err());
+        assert!(res.unwrap_err().contains("Invalid Steam App ID 0"));
+    }
+
+    #[test]
+    fn test_launch_uri_rejects_disallowed_schemes() {
+        let res = launch_uri("https://malicious-site.com");
+        assert!(res.is_err());
+        assert!(res
+            .unwrap_err()
+            .to_string()
+            .contains("Disallowed protocol URI"));
+
+        let res2 = launch_uri("cmd://echo evil");
+        assert!(res2.is_err());
     }
 }

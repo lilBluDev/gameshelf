@@ -378,6 +378,164 @@ impl Database {
         Ok(())
     }
 
+    /// Find a game by its source kind and source ID
+    pub fn find_game_by_source(
+        &self,
+        source_kind: &SourceKind,
+        source_id: &str,
+    ) -> AppResult<Option<Game>> {
+        let conn = self.conn.lock().unwrap();
+        let source_kind_str = match source_kind {
+            SourceKind::Steam => "Steam",
+            SourceKind::Standalone => "Standalone",
+            SourceKind::Shortcut => "Shortcut",
+            SourceKind::Emulated => "Emulated",
+            SourceKind::Manual => "Manual",
+        };
+
+        let sql = "SELECT 
+                g.id,
+                COALESCE(go.title, g.title) AS title,
+                COALESCE(go.sort_title, g.sort_title) AS sort_title,
+                COALESCE(go.description, g.description) AS description,
+                COALESCE(go.developer, g.developer) AS developer,
+                COALESCE(go.publisher, g.publisher) AS publisher,
+                COALESCE(go.release_year, g.release_year) AS release_year,
+                COALESCE(go.genres, g.genres) AS genres,
+                COALESCE(go.tags, g.tags) AS tags,
+                g.source_kind,
+                g.source_id,
+                g.install_dir,
+                g.launch_action,
+                g.status,
+                g.last_scanned_at,
+                COALESCE(go.is_favorite, g.is_favorite) AS is_favorite,
+                COALESCE(go.is_hidden, g.is_hidden) AS is_hidden,
+                COALESCE(go.notes, g.notes) AS notes,
+                COALESCE(go.user_tags, g.user_tags) AS user_tags,
+                g.match_confidence,
+                g.provider_attribution,
+                g.last_launched_at,
+                g.normalized_path,
+                g.created_at
+            FROM games g
+            LEFT JOIN game_overrides go ON go.game_id = g.id
+            WHERE g.source_kind = ?1 AND g.source_id = ?2";
+
+        let mut stmt = conn.prepare(sql)?;
+        let mut rows = stmt.query(params![source_kind_str, source_id])?;
+
+        if let Some(row) = rows.next()? {
+            let game = Self::map_game_row(row)?;
+            Ok(Some(game))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Count games by source kind (e.g. for sidebar counter)
+    pub fn count_games_by_source(&self, source_kind: &SourceKind) -> AppResult<usize> {
+        let conn = self.conn.lock().unwrap();
+        let source_kind_str = match source_kind {
+            SourceKind::Steam => "Steam",
+            SourceKind::Standalone => "Standalone",
+            SourceKind::Shortcut => "Shortcut",
+            SourceKind::Emulated => "Emulated",
+            SourceKind::Manual => "Manual",
+        };
+
+        let mut stmt = conn.prepare("SELECT COUNT(*) FROM games WHERE source_kind = ?1")?;
+        let count: i64 = stmt.query_row(params![source_kind_str], |r| r.get(0))?;
+        Ok(count as usize)
+    }
+
+    /// Idempotently upsert a Steam game:
+    /// Updates install_dir, status, launch_action, and last_scanned_at,
+    /// but preserves existing user overrides in `game_overrides`.
+    pub fn upsert_steam_game(&self, game: &Game) -> AppResult<Game> {
+        let source_id = game.source_id.as_deref().unwrap_or("");
+        if let Some(existing) = self.find_game_by_source(&SourceKind::Steam, source_id)? {
+            let conn = self.conn.lock().unwrap();
+            let now = Utc::now().to_rfc3339();
+            let launch_action_json = serde_json::to_string(&game.launch_action)?;
+            let status_str = match game.status {
+                GameStatus::Installed => "Installed",
+                GameStatus::Missing => "Missing",
+                GameStatus::Unknown => "Unknown",
+            };
+
+            conn.execute(
+                "UPDATE games SET 
+                    title = ?1,
+                    sort_title = ?2,
+                    install_dir = ?3,
+                    launch_action = ?4,
+                    status = ?5,
+                    last_scanned_at = ?6,
+                    normalized_path = ?7,
+                    updated_at = ?8
+                 WHERE id = ?9",
+                params![
+                    game.title,
+                    game.sort_title,
+                    game.install_dir,
+                    launch_action_json,
+                    status_str,
+                    game.last_scanned_at,
+                    game.normalized_path,
+                    now,
+                    existing.id
+                ],
+            )?;
+
+            drop(conn);
+            let updated = self.get_game_by_id(&existing.id)?.unwrap_or(existing);
+            Ok(updated)
+        } else {
+            self.add_game(game)?;
+            let added = self.get_game_by_id(&game.id)?.unwrap();
+            Ok(added)
+        }
+    }
+
+    /// Mark Steam games not present in active_app_ids as Missing
+    pub fn mark_missing_steam_games(&self, active_app_ids: &[u32]) -> AppResult<usize> {
+        let conn = self.conn.lock().unwrap();
+        let now = Utc::now().to_rfc3339();
+        let mut count = 0;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, source_id FROM games WHERE source_kind = 'Steam' AND status = 'Installed'",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            let id: String = row.get(0)?;
+            let src_id: Option<String> = row.get(1)?;
+            Ok((id, src_id))
+        })?;
+
+        let mut to_mark = Vec::new();
+        for r in rows {
+            let (id, src_id) = r?;
+            if let Some(app_id_str) = src_id {
+                if let Ok(app_id) = app_id_str.parse::<u32>() {
+                    if !active_app_ids.contains(&app_id) {
+                        to_mark.push(id);
+                    }
+                }
+            }
+        }
+
+        for id in to_mark {
+            conn.execute(
+                "UPDATE games SET status = 'Missing', updated_at = ?1 WHERE id = ?2",
+                params![now, id],
+            )?;
+            count += 1;
+        }
+
+        Ok(count)
+    }
+
     /// Query games from the database with user overrides merged, filtering, search, and sorting
     pub fn list_games(
         &self,
@@ -716,5 +874,118 @@ mod tests {
             game_file.exists(),
             "Removing a game from library must NEVER delete game files!"
         );
+    }
+
+    #[test]
+    fn test_steam_game_idempotent_upsert_and_override_preservation() {
+        let db = Database::in_memory().unwrap();
+        let steam_game = Game {
+            id: "steam-uuid-1".to_string(),
+            title: "Terraria".to_string(),
+            sort_title: "terraria".to_string(),
+            description: None,
+            developer: None,
+            publisher: None,
+            release_year: None,
+            genres: vec![],
+            tags: vec![],
+            source_kind: SourceKind::Steam,
+            source_id: Some("105600".to_string()),
+            install_dir: Some("C:/Steam/steamapps/common/Terraria".to_string()),
+            launch_action: LaunchAction::Steam { app_id: 105600 },
+            status: GameStatus::Installed,
+            last_scanned_at: Some("2026-01-01T00:00:00Z".to_string()),
+            is_favorite: false,
+            is_hidden: false,
+            notes: None,
+            user_tags: vec![],
+            match_confidence: Some(1.0),
+            provider_attribution: Some("Steam".to_string()),
+            last_launched_at: None,
+            normalized_path: Some("c:/steam/steamapps/common/terraria".to_string()),
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+        };
+
+        // First insert
+        let inserted = db.upsert_steam_game(&steam_game).unwrap();
+        assert_eq!(inserted.title, "Terraria");
+        assert_eq!(db.count_games_by_source(&SourceKind::Steam).unwrap(), 1);
+
+        // User edits title
+        db.update_game_overrides(&GameOverrides {
+            game_id: inserted.id.clone(),
+            title: Some("Terraria (Modded)".to_string()),
+            sort_title: Some("terraria modded".to_string()),
+            description: None,
+            developer: None,
+            publisher: None,
+            release_year: None,
+            genres: None,
+            tags: None,
+            notes: Some("Calamity mod installed".to_string()),
+            user_tags: Some(vec!["Sandbox".to_string()]),
+            is_favorite: Some(true),
+            is_hidden: None,
+            updated_at: "2026-01-02T00:00:00Z".to_string(),
+        })
+        .unwrap();
+
+        // Second scan/import (e.g. game moved to SSD)
+        let mut rescanned_game = steam_game.clone();
+        rescanned_game.install_dir = Some("D:/FastSSD/steamapps/common/Terraria".to_string());
+        rescanned_game.normalized_path = Some("d:/fastssd/steamapps/common/terraria".to_string());
+        let updated = db.upsert_steam_game(&rescanned_game).unwrap();
+
+        // Preserves user override title & notes!
+        assert_eq!(updated.title, "Terraria (Modded)");
+        assert_eq!(updated.notes, Some("Calamity mod installed".to_string()));
+        assert!(updated.is_favorite);
+        // But updates install_dir
+        assert_eq!(
+            updated.install_dir,
+            Some("D:/FastSSD/steamapps/common/Terraria".to_string())
+        );
+        // And total games is still 1 (no duplicates!)
+        assert_eq!(db.count_games_by_source(&SourceKind::Steam).unwrap(), 1);
+    }
+
+    #[test]
+    fn test_steam_missing_library_marks_games_missing() {
+        let db = Database::in_memory().unwrap();
+        let steam_game = Game {
+            id: "steam-uuid-2".to_string(),
+            title: "War Thunder".to_string(),
+            sort_title: "war thunder".to_string(),
+            description: None,
+            developer: None,
+            publisher: None,
+            release_year: None,
+            genres: vec![],
+            tags: vec![],
+            source_kind: SourceKind::Steam,
+            source_id: Some("236390".to_string()),
+            install_dir: Some("E:/External/steamapps/common/War Thunder".to_string()),
+            launch_action: LaunchAction::Steam { app_id: 236390 },
+            status: GameStatus::Installed,
+            last_scanned_at: Some("2026-01-01T00:00:00Z".to_string()),
+            is_favorite: false,
+            is_hidden: false,
+            notes: None,
+            user_tags: vec![],
+            match_confidence: Some(1.0),
+            provider_attribution: Some("Steam".to_string()),
+            last_launched_at: None,
+            normalized_path: Some("e:/external/steamapps/common/war thunder".to_string()),
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+        };
+
+        db.upsert_steam_game(&steam_game).unwrap();
+
+        // Suppose external drive E: was unplugged, so active_app_ids has no 236390
+        let marked = db.mark_missing_steam_games(&[]).unwrap();
+        assert_eq!(marked, 1);
+
+        let game = db.get_game_by_id(&steam_game.id).unwrap().unwrap();
+        assert_eq!(game.status, GameStatus::Missing);
     }
 }

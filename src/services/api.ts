@@ -11,6 +11,8 @@ import {
   SetSettingPayload,
   UpdateGamePayload,
   UpdateLaunchSettingsPayload,
+  SteamScanResult,
+  SteamStatusResponse,
 } from '../types/api';
 import { Game } from '../types/models';
 import { DEV_MOCK_GAMES } from '../fixtures/mockGames';
@@ -262,6 +264,115 @@ function fallbackHandler<T>(cmd: string, args?: Record<string, unknown>): Promis
     case 'open_folder':
       return Promise.resolve(true as unknown as T);
 
+    case 'get_steam_status': {
+      const steamGames = previewGames.filter((g) => g.source_kind === 'Steam');
+      const mockStatus: SteamStatusResponse = {
+        is_installed: true,
+        steam_path: 'C:/Program Files (x86)/Steam',
+        libraries: [
+          {
+            path: 'C:/Program Files (x86)/Steam',
+            normalized_path: 'c:/program files (x86)/steam',
+            label: 'Default Library',
+            is_accessible: true,
+            is_enabled: true,
+            game_count: steamGames.length,
+          },
+        ],
+        filter_config: {
+          rules: [
+            {
+              id: 'redistributables',
+              name: 'Common Redistributables',
+              description: 'Filters runtime redistributables (DirectX, VC++)',
+              enabled: true,
+            },
+            {
+              id: 'proton_runtime',
+              name: 'Proton & Linux Runtimes',
+              description: 'Filters Proton compatibility layers',
+              enabled: true,
+            },
+            {
+              id: 'sdks',
+              name: 'Software Development Kits',
+              description: 'Filters development toolkits and engine SDKs',
+              enabled: true,
+            },
+            {
+              id: 'dedicated_servers',
+              name: 'Dedicated Game Servers',
+              description: 'Filters headless dedicated servers',
+              enabled: true,
+            },
+          ],
+          explicit_included_app_ids: [],
+          explicit_excluded_app_ids: [],
+        },
+        last_scanned_at: new Date().toISOString(),
+        total_imported_games: steamGames.length,
+        warnings: [],
+      };
+      return Promise.resolve(mockStatus as unknown as T);
+    }
+
+    case 'rescan_steam': {
+      const now = new Date().toISOString();
+      const terrariaGame: Game = {
+        id: 'steam-105600',
+        title: 'Terraria',
+        sort_title: 'terraria',
+        source_kind: 'Steam',
+        source_id: '105600',
+        install_dir: 'C:/Program Files (x86)/Steam/steamapps/common/Terraria',
+        launch_action: { type: 'Steam', app_id: 105600 },
+        status: 'Installed',
+        last_scanned_at: now,
+        is_favorite: false,
+        is_hidden: false,
+        genres: ['Action', 'Sandbox'],
+        tags: ['2D', 'Adventure', 'Crafting'],
+        user_tags: [],
+        normalized_path: 'c:/program files (x86)/steam/steamapps/common/terraria',
+        created_at: now,
+      };
+
+      if (!previewGames.some((g) => g.source_kind === 'Steam' && g.source_id === '105600')) {
+        previewGames.unshift(terrariaGame);
+      }
+
+      const scanResult: SteamScanResult = {
+        steam_path: 'C:/Program Files (x86)/Steam',
+        libraries: [
+          {
+            path: 'C:/Program Files (x86)/Steam',
+            normalized_path: 'c:/program files (x86)/steam',
+            label: 'Default Library',
+            is_accessible: true,
+            is_enabled: true,
+            game_count: 1,
+          },
+        ],
+        imported_games: [terrariaGame],
+        skipped_apps: [
+          {
+            app_id: 228980,
+            name: 'Steamworks Common Redistributables',
+            library_path: 'C:/Program Files (x86)/Steam',
+            reason: 'Matches rule: Common Redistributables',
+          },
+        ],
+        warnings: [],
+      };
+      return Promise.resolve(scanResult as unknown as T);
+    }
+
+    case 'configure_steam_path':
+    case 'set_steam_library_enabled':
+    case 'update_steam_filter_rule':
+    case 'include_skipped_steam_app':
+      return Promise.resolve(undefined as unknown as T);
+
     default:
       return Promise.reject({
         code: 'COMMAND_NOT_FOUND',
@@ -284,4 +395,12 @@ export const api = {
   removeGame: (id: string) => callTauri<boolean>('remove_game', { id }),
   launchGame: (id: string) => callTauri<LaunchResult>('launch_game', { id }),
   openFolder: (folderPath: string) => callTauri<boolean>('open_folder', { folderPath }),
+  getSteamStatus: () => callTauri<SteamStatusResponse>('get_steam_status'),
+  rescanSteam: () => callTauri<SteamScanResult>('rescan_steam'),
+  configureSteamPath: (path?: string) => callTauri<void>('configure_steam_path', { path: path || null }),
+  setSteamLibraryEnabled: (libraryPath: string, enabled: boolean) =>
+    callTauri<void>('set_steam_library_enabled', { libraryPath, enabled }),
+  updateSteamFilterRule: (ruleId: string, enabled: boolean) =>
+    callTauri<void>('update_steam_filter_rule', { ruleId, enabled }),
+  includeSkippedSteamApp: (appId: number) => callTauri<void>('include_skipped_steam_app', { appId }),
 };

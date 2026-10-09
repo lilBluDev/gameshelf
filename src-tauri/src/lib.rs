@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod db;
 pub mod error;
+pub mod integrations;
 pub mod launcher;
 pub mod logging;
 pub mod platform;
@@ -71,6 +72,12 @@ pub fn run() {
             commands::games::remove_game,
             commands::games::launch_game,
             commands::games::open_folder,
+            commands::steam::get_steam_status,
+            commands::steam::rescan_steam,
+            commands::steam::configure_steam_path,
+            commands::steam::set_steam_library_enabled,
+            commands::steam::update_steam_filter_rule,
+            commands::steam::include_skipped_steam_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running GameShelf application");

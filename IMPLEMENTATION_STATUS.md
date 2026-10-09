@@ -13,8 +13,8 @@
 ## Phases
 - [x] Phase 1 — Runnable app foundation (2026-10-09)
 - [x] Phase 2 — Persistent manual library and direct launch (2026-10-09)
-- [ ] Phase 3 — Metadata & artwork pipeline
-- [ ] Phase 4 — Execution & runner engine
+- [x] Phase 3 — Steam discovery and launching (2026-10-09)
+- [ ] Phase 4 — Metadata & artwork pipeline
 - [ ] Phase 5 — Emulator manager & profiles
 - [ ] Phase 6 — Library views & curation
 - [ ] Phase 7 — Polish, hardening & packaging
@@ -28,7 +28,7 @@
 | Single-source App Branding Config | Implemented | `src/config/appConfig.ts` houses app name, bundle ID, accent color, and logo path |
 | Design Tokens & Theme System | Implemented | `tailwind.config.js` and `src/index.css` define dark, light, system theme tokens and respect `prefers-reduced-motion` |
 | Native Window Title Bar | Implemented | `src/components/TitleBar.tsx` with non-blocking drag region, window minimize/maximize/close via Tauri API + web fallback |
-| Navigation Sidebar | Implemented | `src/components/Sidebar.tsx` with Library, Favorites, Steam, PC Games, Emulated, Settings, and disabled "Recently Played" |
+| Navigation Sidebar with Real Counts | Implemented | `src/components/Sidebar.tsx` with Library, Favorites, Steam Games (real counter badge), PC Games, Emulated, and Settings |
 | Top Toolbar & View Controls | Implemented | `src/components/TopBar.tsx` with search input, sort selector, grid/list view toggle, and active "+ Add Game" button |
 | Responsive Cover Grid & Card | Implemented | `src/components/GameCard.tsx` with 2:3 ratio, deterministic initials placeholder gradient, and list/grid layout |
 | Empty State | Implemented | `src/components/EmptyState.tsx` rendered when library is empty, verified via Vitest |
@@ -49,25 +49,34 @@
 | Edit Game Metadata Modal | Implemented | In-app modal to edit title, developer, publisher, release year, user tags, and notes |
 | Open Game Directory in Explorer | Implemented | `open_folder` command triggers Explorer with safe item selection |
 | Safe Library Removal | Implemented | "Remove from Library" dialog deletes database records only; leaves game binaries and directories completely untouched |
-| Frontend Unit & Integration Tests | Implemented | `src/App.test.tsx` 7/7 tests passed via `pnpm test` (`vitest run`) |
+| Pure Rust VDF / ACF Parser | Implemented | `src-tauri/src/integrations/steam/vdf.rs` with recursive descent tokenizer, escape parsing, case-insensitivity, and zero regex |
+| Local Steam Platform Discovery | Implemented | `src-tauri/src/integrations/steam/scanner.rs` queries Windows Registry (`HKCU`/`HKLM`), standard paths, and user custom override |
+| Steam Library Folder Discovery | Implemented | Parses `steamapps/libraryfolders.vdf` in both legacy flat and modern nested formats; tolerant of disconnected/offline drives |
+| Steam App Manifest Scanner | Implemented | Parses `steamapps/appmanifest_<appid>.acf`, checks `StateFlags & 4` and disk directory presence, sets `Installed` or `Missing` |
+| Non-Game Filter Rules Engine | Implemented | `src-tauri/src/integrations/steam/filter.rs` filters Common Redistributables, Proton, Linux Runtimes, SDKs, and Dedicated Servers |
+| User Explicit Inclusion Overrides | Implemented | User can override filtering per App ID or toggle individual rules in Settings |
+| Idempotent Steam Game Import | Implemented | `src-tauri/src/db/mod.rs` `upsert_steam_game` updates install paths and status without touching user title/notes/tags overrides |
+| Vanished Library Tolerant Handling | Implemented | Games whose library drive is offline/removed are marked `GameStatus::Missing`, never deleted from the database |
+| Steam Protocol Launch Engine | Implemented | `src-tauri/src/platform/windows.rs` validates positive App IDs, builds `steam://rungameid/<id>`, and activates via OS protocol handler |
+| Integrations Settings Panel | Implemented | `src/components/SettingsModal.tsx` shows Steam status, detected path, library toggles, rule toggles, warnings, and rescan trigger |
+| Frontend Unit & Integration Tests | Implemented | `src/services/steam.test.ts` & `src/App.test.tsx` 13/13 tests passed via `pnpm test` (`vitest run`) |
 | Frontend Production Build | Implemented | `pnpm build` (`tsc && vite build`) passed with zero errors, generating optimized bundle in `dist/` |
-| Rust Formatting Check | Implemented | `cargo fmt --check` passed with zero formatting diffs |
+| Rust Formatting Check | Implemented | `cargo fmt --check` passed with zero formatting diffs across all backend files |
 | Rust Compilation & Native Tests | Unverified | Host machine lacks Visual Studio C++ Build Tools (`link.exe`), preventing native binary compilation on this machine |
 
 ---
 
 ## Known limitations
 1. Host environment currently lacks MSVC C++ Build Tools (`link.exe`) and Windows SDK import libraries. While Rust code structure, dependencies, formatting, and unit tests are complete, `cargo test` and `pnpm tauri dev` require installing C++ Build Tools via the Visual Studio Installer with administrative privileges.
-2. Automated library scanning (Steam manifests, automated ROM folder scanners) is scheduled for Phase 3+. Phase 2 delivers manual addition, shortcut resolution, executable inspection, and direct launching.
+2. Steam Web API ownership import, store login scraping, and non-installed games are strictly out of scope for v1.
 3. Playtime tracking, directory watchers, and store accounts are explicitly out of scope for v1.
 
 ---
 
 ## Decisions
-1. **Config Centralization**: Placed application name (`GameShelf`), bundle identifier (`com.gameshelf.app`), accent color (`#7C6CFF`), and vector logo in `src/config/appConfig.ts` for unified theming and branding.
-2. **Deterministic Placeholder Artwork**: When games lack cover images, `src/utils/artwork.ts` derives a consistent gradient and 2-letter uppercase initials from the game title, ensuring an aesthetically pleasing library view without external artwork dependencies.
-3. **Database Pre-Migration Backup**: `run_migrations` automatically creates a versioned copy of the `.db` file before running any migration on an existing database, preventing corruption or data loss.
-4. **Browser Fallback in API Client**: In `src/services/api.ts`, API calls check `isTauri()`. If running in a browser or test environment (Vitest), it routes to mock handlers with local storage persistence so frontend development and smoke tests run without Tauri backend binaries.
-5. **Separation of Overrides and Base Metadata**: All user edits (title, notes, tags) are written to `game_overrides` table, and all queries use `COALESCE(go.field, g.field)`. This guarantees re-scans or provider syncs will never overwrite user edits.
-6. **Binary Argument Vectors for Launching**: Games are strictly executed via `std::process::Command` using structured argument vectors (`Vec<String>`). Commands are never passed to `cmd.exe /c` or PowerShell strings, ensuring total immunity against shell injection and spaces/Unicode path issues.
-7. **Strict Non-Destructive Game Deletion**: Removing a game from GameShelf deletes only the database entry and associated cache references; filesystem files are never moved, modified, or deleted.
+1. **Zero-Dependency Minimal VDF Parser**: Built an in-tree recursive descent tokenizer and parser in `src-tauri/src/integrations/steam/vdf.rs` handling quoted keys, nested sections, comments (`//`), escaped backslashes/quotes, and case-insensitive queries without external crates.
+2. **Dual-Format Library Support**: Parses `libraryfolders.vdf` supporting both legacy flat structure (`"1" "D:\\SteamLibrary"`) and modern nested section structure (`"0" { "path" "..." "apps" { ... } }`).
+3. **Registry Discovery via Windows Built-in Tools**: Uses Windows registry query (`HKCU\Software\Valve\Steam\SteamPath`, `HKLM\SOFTWARE\WOW6432Node\Valve\Steam\InstallPath`) to locate Steam without elevated privileges or third-party crates.
+4. **Explainable and Editable Filtering**: Non-game redistributables (AppID 228980), Proton runtimes, SDKs, and dedicated servers are filtered via an explainable rule list where users can toggle rules or explicitly include individual App IDs.
+5. **Protocol-Only Steam Launching**: Steam titles are strictly launched via validated protocol URIs (`steam://rungameid/<appid>`). Raw executables are never launched directly for Steam-managed titles.
+6. **Non-Destructive Library Updates**: Games whose library folder is disconnected are marked `Missing`, never deleted. Re-scanning updates base game fields while strictly preserving all user edits in `game_overrides`.

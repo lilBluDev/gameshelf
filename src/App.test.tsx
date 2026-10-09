@@ -307,4 +307,93 @@ describe('GameShelf Shell & Phase 2 UI Tests', () => {
       expect(screen.queryByText('Hollow Knight')).toBeNull();
     });
   });
+
+  it('opens Settings Integrations tab, views Steam libraries, and triggers rescan', async () => {
+    vi.spyOn(apiModule.api, 'listGames').mockResolvedValue({
+      games: [],
+      total: 0,
+    });
+
+    vi.spyOn(apiModule.api, 'getSteamStatus').mockResolvedValue({
+      is_installed: true,
+      steam_path: 'C:/Program Files (x86)/Steam',
+      libraries: [
+        {
+          path: 'C:/Program Files (x86)/Steam',
+          normalized_path: 'c:/program files (x86)/steam',
+          label: 'Default Library',
+          is_accessible: true,
+          is_enabled: true,
+          game_count: 1,
+        },
+      ],
+      filter_config: {
+        rules: [
+          {
+            id: 'redistributables',
+            name: 'Common Redistributables',
+            description: '',
+            enabled: true,
+          },
+        ],
+        explicit_included_app_ids: [],
+        explicit_excluded_app_ids: [],
+      },
+      last_scanned_at: '2026-01-01T00:00:00Z',
+      total_imported_games: 1,
+      warnings: [],
+    });
+
+    vi.spyOn(apiModule.api, 'rescanSteam').mockResolvedValue({
+      steam_path: 'C:/Program Files (x86)/Steam',
+      libraries: [],
+      imported_games: [
+        {
+          id: 'steam-105600',
+          title: 'Terraria',
+          sort_title: 'terraria',
+          source_kind: 'Steam',
+          source_id: '105600',
+          install_dir: 'C:/Steam/steamapps/common/Terraria',
+          launch_action: { type: 'Steam', app_id: 105600 },
+          status: 'Installed',
+          is_favorite: false,
+          is_hidden: false,
+          genres: [],
+          tags: [],
+          user_tags: [],
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      ],
+      skipped_apps: [],
+      warnings: [],
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Settings')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Settings'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Integrations')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Integrations'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Steam (Installed Games)')).toBeDefined();
+      expect(screen.getByText('Supported')).toBeDefined();
+      expect(screen.getByText('Rescan Steam Library')).toBeDefined();
+    });
+
+    // Trigger rescan
+    fireEvent.click(screen.getByText('Rescan Steam Library'));
+
+    await waitFor(() => {
+      expect(apiModule.api.rescanSteam).toHaveBeenCalled();
+    });
+  });
 });
