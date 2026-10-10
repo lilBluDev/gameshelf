@@ -45,7 +45,7 @@
 | Virtualized Grid & List Windowing | Implemented | `src/components/VirtualizedLibrary.tsx` uses `@tanstack/react-virtual` for windowed rendering with responsive column calculation and scroll restoration |
 | 1,000 & 5,000 Games Performance Benchmarks | Implemented | Verified in `test_performance_1000_games.rs` (insert: 586ms, retrieve: 31ms, search: 5ms) and `src/services/benchmark.test.tsx` (5,000 synthetic games rendered DOM card count strictly bounded to 30) |
 | Complete Quality Gate Suite | Implemented | 94/94 Rust tests (`cargo test`), 75/75 frontend tests (`pnpm test` across 12 test files), `cargo clippy -- -D warnings`, `cargo fmt --check` all passing (169 total tests passing) |
-| Windows Desktop Production Packaging | Implemented | `pnpm tauri build` generates MSI (`GameShelf_0.1.0_x64_en-US.msi`, 6.57 MiB / 6,893,568 bytes) and NSIS setup (`GameShelf_0.1.0_x64-setup.exe`, 4.64 MiB / 4,861,617 bytes) |
+| Windows Desktop Production Packaging | Implemented | Production packaging generates MSI (`GameShelf_0.1.0_x64_en-US.msi`, 6.64 MiB / 6,959,104 bytes) and NSIS setup (`GameShelf_0.1.0_x64-setup.exe`, 4.68 MiB / 4,904,797 bytes) |
 | Single-source App Branding Config | Implemented | `src/config/appConfig.ts` houses app name, bundle ID, accent color, and logo path |
 | Design Tokens & Theme System | Implemented | `tailwind.config.js` and `src/index.css` define dark, light, system theme tokens and respect `prefers-reduced-motion` |
 | Native Window Title Bar | Implemented | `src/components/TitleBar.tsx` with non-blocking drag region, window minimize/maximize/close via Tauri API + web fallback |
