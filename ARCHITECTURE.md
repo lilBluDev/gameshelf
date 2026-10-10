@@ -29,9 +29,19 @@ GameShelf is architected as a local-first desktop application with a clear typed
 game-launcher/
 ├── src/
 │   ├── components/             # Reusable accessible UI components
+│   │   ├── ui/                 # Standardized design system primitives
+│   │   │   ├── DialogShell.tsx # Accessible modal dialog shell with ARIA dialog roles & Escape handler
+│   │   │   ├── Menu.tsx        # Standardized popup menu container
+│   │   │   ├── Button.tsx      # Unified button primitive with primary/secondary/ghost/danger variants
+│   │   │   ├── IconButton.tsx  # Compact accessible icon button
+│   │   │   ├── SegmentedControl.tsx # Semantic radiogroup / radio view and layout switcher
+│   │   │   ├── StatusLabel.tsx # Status badge primitive
+│   │   │   └── SectionHeading.tsx # Muted section heading primitive
 │   │   ├── TitleBar.tsx        # Native-respectful custom title bar with window controls
 │   │   ├── Sidebar.tsx         # Navigation sidebar (Library, Favorites, Steam, PC, Emulated)
 │   │   ├── TopBar.tsx          # Search, sort, view toggle, and Add Game modal trigger
+│   │   ├── VirtualizedLibrary.tsx # Windowed virtual grid & list layout engine
+│   │   ├── VirtualizedLibrary.test.tsx # Unit tests for column calculation and bounded DOM nodes
 │   │   ├── GameCard.tsx        # Cover card with 2:3 ratio and list-item view
 │   │   ├── GameDetailPanel.tsx # Side panel with Play, Edit metadata, Config, and Steam App ID
 │   │   ├── AddGameModal.tsx    # Modal for manual file selection, auto-inspection, duplicate alert
@@ -41,6 +51,7 @@ game-launcher/
 │   │   ├── OnboardingModal.tsx # 4-step skippable onboarding wizard (Steam, folders, SGDB key)
 │   │   ├── OnboardingModal.test.tsx # Onboarding wizard navigation and completion tests
 │   │   ├── SettingsModal.tsx   # Preference modal (General, Appearance, Integrations, Emulators, Metadata, Diagnostics)
+│   │   ├── Accessibility.test.tsx # ARIA landmarks, roles, and focus ring compliance test suite
 │   │   ├── EmptyState.tsx      # Friendly empty state when 0 games are loaded
 │   │   └── Toast.tsx           # Error and status toast notification container
 │   ├── config/
@@ -355,3 +366,22 @@ Implemented across `src-tauri/migrations/006_phase8_playtime_tracking.sql`, `src
   - "Most Played" sort option in `TopBar.tsx` and playtime badges in `GameCard.tsx` appear only when `playtime_tracking_enabled` is active.
   - If the user turns off playtime tracking in Settings, the sort field automatically falls back to title sort.
   - `reset_game_playtime` clears session records and zeroes total duration with user confirmation in `GameDetailPanel.tsx`.
+
+### 12. Quiet Desktop Shelf Visual Design System (Phase 10)
+Implemented across tokens, primitives, layout virtualization, and modal dialogs:
+- **Design Tokens & Typography Standards**:
+  - Strict minimum font size of 12px across all UI elements; 13px base body text (`text-body`).
+  - Standardized radius scale: `rounded-control` (8px), `rounded-card` (10px), `rounded-dialog` (12px).
+  - High-contrast muted text (`--color-muted`) verified >5:1 contrast against background, surface, and surface-2 in both dark and light modes, satisfying WCAG 2.1 AA.
+- **Surface Elevation & Restraint**:
+  - Elimination of heavy translucent blur filters (`backdrop-blur: 0`) across all navigation headers, toolbars, and dialog backdrops.
+  - Quiet surface shifts (`bg-surface-2`) and subtle borders (`border-border`) replace saturated accent fills.
+  - Subtle 3px vertical accent indicators on active navigation items (`aria-current="page"`).
+- **Responsive Layout Engine**:
+  - `VirtualizedLibrary.tsx` integrates viewport-width reactive column calculation (`getColumnCount`) and dynamic card/list row height calculation (`getGridRowHeight`).
+  - Virtual windowing guarantees bounded DOM element counts (verified <= 30 rendered cards across 5,000 synthetic games) while supporting dynamic resizing.
+- **Accessibility Invariants**:
+  - All dialog shells render with `role="dialog"`, `aria-modal="true"`, and descriptive `aria-label`/`aria-labelledby`.
+  - Keyboard focus rings (`focus-visible:ring-2 focus-visible:ring-accent`) consistently present on all interactive controls.
+  - Escape key handlers universally dismiss modal dialogs while preserving open sub-dialog state.
+
