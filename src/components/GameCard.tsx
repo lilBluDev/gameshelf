@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Game } from '../types/models';
 import { getDeterministicGradient, getTitleInitials, resolveArtworkSrc } from '../utils/artwork';
-import { Heart, Flame, Monitor, Cpu, Clock } from 'lucide-react';
+import { Heart, Flame, Monitor, Cpu, Clock, AlertCircle } from 'lucide-react';
 import { formatPlaytime } from '../utils/playtime';
 
 export interface GameCardProps {
@@ -62,12 +62,12 @@ export const GameCard: React.FC<GameCardProps> = ({
   const getSourceIcon = () => {
     switch (game.source_kind) {
       case 'Steam':
-        return <Flame className="w-3 h-3 text-[#FF6E40]" />;
+        return <Flame className="w-3 h-3 text-muted" />;
       case 'Standalone':
       case 'Shortcut':
-        return <Monitor className="w-3 h-3 text-[#64B5F6]" />;
+        return <Monitor className="w-3 h-3 text-muted" />;
       case 'Emulated':
-        return <Cpu className="w-3 h-3 text-[#81C784]" />;
+        return <Cpu className="w-3 h-3 text-muted" />;
       default:
         return null;
     }
@@ -82,15 +82,15 @@ export const GameCard: React.FC<GameCardProps> = ({
         onClick={() => onSelect(game)}
         onContextMenu={handleContextMenu}
         onKeyDown={handleKeyDown}
-        className={`flex items-center justify-between p-3 rounded-card border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent ${
+        className={`flex items-center justify-between px-3 py-2 rounded-control border transition-colors cursor-pointer select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
           isSelected
-            ? 'bg-surface-2 border-accent ring-1 ring-accent'
-            : 'bg-surface border-border hover:border-muted/50 hover:bg-surface-2/40'
+            ? 'bg-surface-2 border-accent/80 ring-1 ring-accent/60'
+            : 'bg-surface border-border/60 hover:bg-surface-2/60 hover:border-border'
         }`}
       >
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0 flex-1 mr-4">
           <div
-            className="w-9 h-12 rounded-control overflow-hidden flex-shrink-0 flex items-center justify-center font-bold text-white text-xs shadow"
+            className="w-8 h-11 rounded-[4px] overflow-hidden flex-shrink-0 flex items-center justify-center font-medium text-text/80 text-xs bg-surface-2 border border-border/60"
             style={{ background: coverSrc ? undefined : gradient }}
           >
             {coverSrc ? (
@@ -106,10 +106,16 @@ export const GameCard: React.FC<GameCardProps> = ({
             )}
           </div>
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-text truncate">{game.title}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-body font-medium text-text truncate">{game.title}</span>
               {game.is_favorite && <Heart className="w-3 h-3 fill-danger text-danger flex-shrink-0" />}
+              {game.status === 'Missing' && (
+                <span className="inline-flex items-center gap-1 text-xs text-warning" title="Missing installation directory">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>Missing</span>
+                </span>
+              )}
             </div>
             <div className="text-xs text-muted truncate">
               {game.developer || 'Unknown Developer'} {game.release_year ? `• ${game.release_year}` : ''}
@@ -117,34 +123,29 @@ export const GameCard: React.FC<GameCardProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-2.5 flex-shrink-0">
           {playtimeTrackingEnabled && (game.playtime_seconds ?? 0) > 0 && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-surface-2 border border-border text-xs text-muted font-mono" title={`Playtime: ${formatPlaytime(game.playtime_seconds!)}`}>
+            <div className="flex items-center gap-1 text-xs text-muted font-mono" title={`Playtime: ${formatPlaytime(game.playtime_seconds!)}`}>
               <Clock className="w-3 h-3 text-muted" />
               <span>{formatPlaytime(game.playtime_seconds!)}</span>
             </div>
           )}
 
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-2 border border-border text-xs text-muted">
+          <div className="flex items-center gap-1 text-xs text-muted">
             {getSourceIcon()}
             <span>{game.source_kind}</span>
           </div>
 
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-              game.status === 'Installed'
-                ? 'bg-success/15 text-success border border-success/30'
-                : 'bg-warning/15 text-warning border border-warning/30'
-            }`}
-          >
-            {game.status}
-          </span>
+          {game.status === 'Installed' && (
+            <span className="text-xs text-muted">
+              Installed
+            </span>
+          )}
         </div>
       </div>
     );
   }
 
-  // Grid View (2:3 aspect ratio card)
   return (
     <div
       data-testid="game-card"
@@ -153,63 +154,60 @@ export const GameCard: React.FC<GameCardProps> = ({
       onClick={() => onSelect(game)}
       onContextMenu={handleContextMenu}
       onKeyDown={handleKeyDown}
-      className={`group relative rounded-card overflow-hidden border transition-all duration-150 cursor-pointer flex flex-col focus:outline-none focus:ring-2 focus:ring-accent ${
+      className={`group relative rounded-card overflow-hidden transition-all cursor-pointer flex flex-col focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent select-none ${
         isSelected
-          ? 'border-accent ring-2 ring-accent shadow-lg scale-[1.01]'
-          : 'border-border hover:border-muted/60 hover:shadow-md'
+          ? 'ring-1 ring-accent border border-accent bg-surface-2/40'
+          : 'border border-border/40 hover:border-border/80 bg-surface/40 hover:bg-surface'
       }`}
     >
-      {/* 2:3 Aspect ratio container */}
       <div
-        className="w-full aspect-[2/3] relative flex items-center justify-center overflow-hidden"
+        className="w-full aspect-[2/3] relative flex items-center justify-center overflow-hidden bg-surface-2"
         style={{ background: coverSrc ? undefined : gradient }}
       >
         {coverSrc ? (
           <img
             src={coverSrc}
             alt={game.title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-full object-cover"
             onError={() => setImgError(true)}
             loading="lazy"
           />
         ) : (
-          /* Deterministic placeholder with initials */
-          <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center select-none">
-            <span className="text-3xl font-extrabold tracking-wider text-white/90 drop-shadow-md">
+          <div className="w-full h-full flex items-center justify-center p-3 select-none">
+            <span className="text-xl font-semibold tracking-wider text-text/60">
               {initials}
-            </span>
-            <span className="text-xs font-medium text-white/70 line-clamp-2 mt-2 px-2 drop-shadow">
-              {game.title}
             </span>
           </div>
         )}
 
-        {/* Top Badges Overlay */}
-        <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
-          <div className="bg-bg/80 backdrop-blur px-1.5 py-0.5 rounded text-xs text-text border border-border/80 flex items-center gap-1">
-            {getSourceIcon()}
-            <span>{game.source_kind}</span>
-          </div>
+        <div className="absolute top-1.5 left-1.5 right-1.5 flex items-center justify-between pointer-events-none">
+          {game.status === 'Missing' ? (
+            <div className="bg-surface/90 px-1.5 py-0.5 rounded-[4px] text-xs text-warning border border-warning/40 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              <span>Missing</span>
+            </div>
+          ) : (
+            <div className="bg-surface/90 px-1.5 py-0.5 rounded-[4px] text-xs text-muted border border-border/60 flex items-center gap-1">
+              {getSourceIcon()}
+              <span>{game.source_kind}</span>
+            </div>
+          )}
           {game.is_favorite && (
-            <div className="bg-bg/80 backdrop-blur p-1 rounded text-danger border border-border/80">
+            <div className="bg-surface/90 p-1 rounded-[4px] text-danger border border-border/60">
               <Heart className="w-3 h-3 fill-danger text-danger" />
             </div>
           )}
         </div>
-
-        {/* Bottom subtle gradient overlay */}
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-bg/95 via-bg/40 to-transparent pointer-events-none" />
       </div>
 
-      {/* Card Info Footer */}
-      <div className="p-2.5 bg-surface border-t border-border flex flex-col justify-between flex-1">
-        <h4 className="text-xs font-semibold text-text truncate group-hover:text-accent transition-colors" title={game.title}>
+      <div className="pt-2 px-2 pb-2 flex flex-col justify-between flex-1 min-w-0">
+        <h4 className="text-xs font-medium text-text truncate group-hover:text-accent transition-colors" title={game.title}>
           {game.title}
         </h4>
-        <div className="flex items-center justify-between text-xs text-muted mt-1">
-          <span className="truncate max-w-[110px]">{game.developer || '—'}</span>
+        <div className="flex items-center justify-between text-xs text-muted mt-0.5">
+          <span className="truncate max-w-[120px]">{game.developer || '—'}</span>
           {playtimeTrackingEnabled && (game.playtime_seconds ?? 0) > 0 ? (
-            <span className="font-mono text-text/80 text-xs bg-surface-2 px-1.5 py-0.5 rounded border border-border" title={`Playtime: ${formatPlaytime(game.playtime_seconds!)}`}>
+            <span className="font-mono text-muted text-xs tabular-nums" title={`Playtime: ${formatPlaytime(game.playtime_seconds!)}`}>
               {formatPlaytime(game.playtime_seconds!)}
             </span>
           ) : (

@@ -19,25 +19,21 @@ export interface VirtualizedLibraryProps {
 
 export function getColumnCount(width: number, size: 'small' | 'medium' | 'large'): number {
   if (width <= 0) return 4;
-  if (size === 'small') {
-    if (width < 640) return 2;
-    if (width < 768) return 4;
-    if (width < 1024) return 5;
-    if (width < 1280) return 6;
-    return 8;
-  }
-  if (size === 'large') {
-    if (width < 640) return 1;
-    if (width < 768) return 2;
-    if (width < 1024) return 3;
-    if (width < 1280) return 4;
-    return 5;
-  }
-  if (width < 640) return 2;
-  if (width < 768) return 3;
-  if (width < 1024) return 4;
-  if (width < 1280) return 5;
-  return 6;
+  const gap = 16;
+  const minCardWidth = {
+    small: 132,
+    medium: 168,
+    large: 216,
+  }[size] || 168;
+  return Math.max(1, Math.floor((width + gap) / (minCardWidth + gap)));
+}
+
+export function getGridRowHeight(width: number, columns: number, gap: number = 16): number {
+  if (width <= 0 || columns <= 0) return 340;
+  const actualCardWidth = Math.max(80, (width - (columns - 1) * gap) / columns);
+  const coverHeight = Math.round(actualCardWidth * 1.5);
+  const titleBlockHeight = 52;
+  return coverHeight + titleBlockHeight + gap;
 }
 
 export const VirtualizedLibrary: React.FC<VirtualizedLibraryProps> = ({
@@ -79,17 +75,9 @@ export const VirtualizedLibrary: React.FC<VirtualizedLibraryProps> = ({
   }, [games.length, columnCount]);
 
   const rowHeight = useMemo(() => {
-    if (viewMode === 'list') return 58;
-    switch (cardSize) {
-      case 'small':
-        return 280;
-      case 'large':
-        return 440;
-      case 'medium':
-      default:
-        return 340;
-    }
-  }, [viewMode, cardSize]);
+    if (viewMode === 'list') return 54;
+    return getGridRowHeight(containerWidth, columnCount, 16);
+  }, [viewMode, containerWidth, columnCount]);
 
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
@@ -116,13 +104,12 @@ export const VirtualizedLibrary: React.FC<VirtualizedLibraryProps> = ({
   };
 
   const virtualItems = rowVirtualizer.getVirtualItems();
-  const gridGap = cardSize === 'small' ? '0.75rem' : cardSize === 'large' ? '1.25rem' : '1rem';
 
   return (
     <main
       ref={parentRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto p-6"
+      className="flex-1 overflow-y-auto p-5 sm:p-6"
       data-testid="virtualized-scroll-container"
     >
       <div
@@ -149,7 +136,7 @@ export const VirtualizedLibrary: React.FC<VirtualizedLibraryProps> = ({
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                <div className="max-w-4xl mx-auto">
+                <div className="max-w-4xl mx-auto mb-1">
                   <GameCard
                     game={game}
                     isSelected={selectedGame?.id === game.id}
@@ -182,7 +169,7 @@ export const VirtualizedLibrary: React.FC<VirtualizedLibraryProps> = ({
                 style={{
                   display: 'grid',
                   gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
-                  gap: gridGap,
+                  gap: '16px',
                 }}
               >
                 {rowGames.map((game) => (
