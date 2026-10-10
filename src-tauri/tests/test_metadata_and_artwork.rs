@@ -405,3 +405,18 @@ fn test_db_artwork_selection_and_locked_fields_preservation() {
         "cover-2"
     );
 }
+
+#[test]
+fn test_asset_protocol_scope_boundary() {
+    let app_data_dir = std::path::PathBuf::from(r"C:\Users\User\AppData\Roaming\com.gameshelf.app");
+    let artwork_dir = app_data_dir.join("artwork");
+    let allowed_artwork_file = artwork_dir.join("cover").join("test.jpg");
+    let forbidden_db_file = app_data_dir.join("gameshelf.db");
+    let forbidden_backup_file = app_data_dir.join("gameshelf.db.backup.123");
+    let forbidden_log_file = app_data_dir.join("logs").join("app.log");
+
+    assert!(allowed_artwork_file.starts_with(&artwork_dir));
+    assert!(!forbidden_db_file.starts_with(&artwork_dir));
+    assert!(!forbidden_backup_file.starts_with(&artwork_dir));
+    assert!(!forbidden_log_file.starts_with(&artwork_dir));
+}

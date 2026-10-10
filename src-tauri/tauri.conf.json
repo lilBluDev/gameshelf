@@ -10,7 +10,6 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "withGlobalTauri": true,
     "windows": [
       {
         "title": "GameShelf",
@@ -25,10 +24,10 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https: data:; font-src 'self' data:; connect-src 'self' ipc:",
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https://*.steamgriddb.com https://*.steamstatic.com https://steamcdn-a.akamaihd.net https://images.unsplash.com data:; font-src 'self' data:; connect-src 'self' ipc:",
       "assetProtocol": {
         "enable": true,
-        "scope": ["$APPDATA/**", "$CACHE/**"]
+        "scope": ["$APPDATA/artwork/**"]
       }
     }
   },
