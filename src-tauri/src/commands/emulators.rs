@@ -100,7 +100,9 @@ pub async fn scan_rom_folder(
         })?;
 
     let existing_roms = state.db.get_existing_emulated_rom_paths()?;
-    scan_rom_directory(&options, &profile, &existing_roms)
+    tokio::task::spawn_blocking(move || scan_rom_directory(&options, &profile, &existing_roms))
+        .await
+        .map_err(|e| AppError::Internal(format!("ROM scan task failed: {}", e)))?
 }
 
 #[tauri::command]
@@ -112,7 +114,10 @@ pub async fn import_emulated_games(
         candidate_count = candidates.len(),
         "Importing emulated ROM candidates into library"
     );
-    state.db.import_rom_candidates(&candidates)
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || db.import_rom_candidates(&candidates))
+        .await
+        .map_err(|e| AppError::Internal(format!("Import ROM task failed: {}", e)))?
 }
 
 #[tauri::command]

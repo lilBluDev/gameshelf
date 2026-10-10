@@ -105,17 +105,22 @@ pub fn remove_scan_source(state: State<'_, AppState>, id: String) -> AppResult<(
 }
 
 #[tauri::command]
-pub fn import_scan_candidates(
+pub async fn import_scan_candidates(
     state: State<'_, AppState>,
     candidates: Vec<ScanCandidate>,
     source_id: Option<String>,
 ) -> AppResult<usize> {
-    let imported_count = state.db.import_scan_candidates(&candidates)?;
-    if let Some(src_id) = source_id {
-        let _ = state.db.update_scan_source_stats(&src_id, imported_count);
-    }
-    info!(count = imported_count, "Imported folder scan candidates");
-    Ok(imported_count)
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        let imported_count = db.import_scan_candidates(&candidates)?;
+        if let Some(src_id) = source_id {
+            let _ = db.update_scan_source_stats(&src_id, imported_count);
+        }
+        info!(count = imported_count, "Imported folder scan candidates");
+        Ok(imported_count)
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("Import task failed: {}", e)))?
 }
 
 #[tauri::command]

@@ -23,6 +23,12 @@ pub struct Database {
 }
 
 impl Database {
+    fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
+        self.conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     /// Initialize SQLite database at the specified path and apply any pending migrations.
     /// Resilient: if corruption is detected, backs up the corrupt file and re-initializes.
     pub fn new<P: AsRef<Path>>(path: P) -> AppResult<Self> {
@@ -114,21 +120,21 @@ impl Database {
 
     /// Run quick integrity check
     pub fn check_integrity(&self) -> AppResult<bool> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let check: String = conn.query_row("PRAGMA quick_check;", [], |r| r.get(0))?;
         Ok(check == "ok")
     }
 
     /// Retrieve total count of games
     pub fn get_game_count(&self) -> AppResult<usize> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM games", [], |r| r.get(0))?;
         Ok(count as usize)
     }
 
     /// Retrieve game counts tuple: (total, installed, missing, favorites)
     pub fn get_game_stats(&self) -> AppResult<(usize, usize, usize, usize)> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let total: i64 = conn.query_row("SELECT COUNT(*) FROM games", [], |r| r.get(0))?;
         let installed: i64 = conn.query_row(
             "SELECT COUNT(*) FROM games WHERE status = 'Installed'",
@@ -170,7 +176,7 @@ impl Database {
 
     /// Read a setting by key
     pub fn get_setting(&self, key: &str) -> AppResult<Option<String>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?1")?;
         let mut rows = stmt.query(params![key])?;
 
@@ -184,7 +190,7 @@ impl Database {
 
     /// Set a setting by key with timestamp
     pub fn set_setting(&self, key: &str, value: &str) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
         conn.execute(
             "INSERT INTO settings (key, value, updated_at)
@@ -197,7 +203,7 @@ impl Database {
 
     /// Add a new game to the library
     pub fn add_game(&self, game: &Game) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
         let genres_json = serde_json::to_string(&game.genres)?;
         let tags_json = serde_json::to_string(&game.tags)?;
@@ -271,7 +277,7 @@ impl Database {
 
     /// Retrieve a single game by ID, merging user overrides
     pub fn get_game_by_id(&self, id: &str) -> AppResult<Option<Game>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let sql = "SELECT 
                 g.id,
                 COALESCE(go.title, g.title) AS title,
@@ -327,7 +333,7 @@ impl Database {
 
     /// Find an existing game by normalized path (case-insensitive duplicate check)
     pub fn find_game_by_normalized_path(&self, normalized_path: &str) -> AppResult<Option<Game>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let sql = "SELECT 
                 g.id,
                 COALESCE(go.title, g.title) AS title,
@@ -372,7 +378,7 @@ impl Database {
     /// Save user overrides (title, notes, tags, favorite, hidden, locked_fields).
     /// Stored separately so library refreshes never overwrite manual edits.
     pub fn update_game_overrides(&self, overrides: &GameOverrides) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
         let genres_json = overrides
             .genres
@@ -448,7 +454,7 @@ impl Database {
         normalized_path: Option<&str>,
         status: GameStatus,
     ) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
         let action_json = serde_json::to_string(action)?;
         let status_str = match status {
@@ -472,7 +478,7 @@ impl Database {
 
     /// Record last_launched timestamp
     pub fn update_last_launched(&self, id: &str) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
         conn.execute(
             "UPDATE games SET last_launched_at = ?1, updated_at = ?1 WHERE id = ?2",
@@ -483,7 +489,7 @@ impl Database {
 
     /// Update game status (e.g. Installed vs Missing)
     pub fn update_game_status(&self, id: &str, status: GameStatus) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
         let status_str = match status {
             GameStatus::Installed => "Installed",
@@ -500,7 +506,7 @@ impl Database {
     /// Remove a game from the library.
     /// Strictly deletes the database record only; never touches files on disk.
     pub fn remove_game(&self, id: &str) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute("DELETE FROM games WHERE id = ?1", params![id])?;
         Ok(())
     }
@@ -511,7 +517,7 @@ impl Database {
         source_kind: &SourceKind,
         source_id: &str,
     ) -> AppResult<Option<Game>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let source_kind_str = match source_kind {
             SourceKind::Steam => "Steam",
             SourceKind::Standalone => "Standalone",
@@ -563,7 +569,7 @@ impl Database {
 
     /// Count games by source kind (e.g. for sidebar counter)
     pub fn count_games_by_source(&self, source_kind: &SourceKind) -> AppResult<usize> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let source_kind_str = match source_kind {
             SourceKind::Steam => "Steam",
             SourceKind::Standalone => "Standalone",
@@ -583,7 +589,7 @@ impl Database {
     pub fn upsert_steam_game(&self, game: &Game) -> AppResult<Game> {
         let source_id = game.source_id.as_deref().unwrap_or("");
         if let Some(existing) = self.find_game_by_source(&SourceKind::Steam, source_id)? {
-            let conn = self.conn.lock().unwrap();
+            let conn = self.conn();
             let now = Utc::now().to_rfc3339();
             let launch_action_json = serde_json::to_string(&game.launch_action)?;
             let status_str = match game.status {
@@ -628,7 +634,7 @@ impl Database {
 
     /// Mark Steam games not present in active_app_ids as Missing
     pub fn mark_missing_steam_games(&self, active_app_ids: &[u32]) -> AppResult<usize> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
         let mut count = 0;
 
@@ -667,7 +673,7 @@ impl Database {
     /// Add or update a folder scan source
     pub fn add_scan_source(&self, path: &str, depth: usize) -> AppResult<ScanSource> {
         let norm = crate::platform::windows::normalize_path(path);
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
 
         let existing: Option<String> = conn
@@ -716,7 +722,7 @@ impl Database {
 
     /// List all configured folder scan sources
     pub fn list_scan_sources(&self) -> AppResult<Vec<ScanSource>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, path, normalized_path, depth, last_scanned_at, game_count, created_at, updated_at
              FROM scan_sources ORDER BY created_at ASC",
@@ -744,14 +750,14 @@ impl Database {
 
     /// Remove a scan source record from database (does not delete games or files)
     pub fn remove_scan_source(&self, id: &str) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute("DELETE FROM scan_sources WHERE id = ?1", params![id])?;
         Ok(())
     }
 
     /// Update stats for a scan source after a successful scan
     pub fn update_scan_source_stats(&self, id: &str, game_count: usize) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
         conn.execute(
             "UPDATE scan_sources SET game_count = ?1, last_scanned_at = ?2, updated_at = ?2 WHERE id = ?3",
@@ -762,7 +768,7 @@ impl Database {
 
     /// Atomically import selected folder scan candidates into library
     pub fn import_scan_candidates(&self, candidates: &[ScanCandidate]) -> AppResult<usize> {
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self.conn();
         let tx = conn.transaction()?;
         let now = Utc::now().to_rfc3339();
         let mut imported_count = 0;
@@ -861,7 +867,7 @@ impl Database {
         source_root_normalized: &str,
         active_normalized_paths: &[String],
     ) -> AppResult<usize> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
         let mut count = 0;
 
@@ -907,7 +913,7 @@ impl Database {
         sort_order: Option<&str>,
         include_hidden: bool,
     ) -> AppResult<Vec<Game>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut sql = String::from(
             "SELECT 
                 g.id,
@@ -1153,7 +1159,7 @@ impl Database {
 
     /// List all emulator profiles (built-in and user-added)
     pub fn list_emulator_profiles(&self) -> AppResult<Vec<EmulatorProfile>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, name, systems_json, supported_extensions_json, argument_template_json,
                     working_dir_rule, executable_path, core_path, is_builtin, detection_hints_json,
@@ -1174,7 +1180,7 @@ impl Database {
 
     /// Retrieve a single emulator profile by ID
     pub fn get_emulator_profile(&self, id: &str) -> AppResult<Option<EmulatorProfile>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, name, systems_json, supported_extensions_json, argument_template_json,
                     working_dir_rule, executable_path, core_path, is_builtin, detection_hints_json,
@@ -1195,7 +1201,7 @@ impl Database {
 
     /// Save (upsert) an emulator profile
     pub fn save_emulator_profile(&self, profile: &EmulatorProfile) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
         let systems_json = serde_json::to_string(&profile.systems)?;
         let exts_json = serde_json::to_string(&profile.supported_extensions)?;
@@ -1245,7 +1251,7 @@ impl Database {
 
     /// Delete a custom emulator profile (built-ins cannot be deleted)
     pub fn delete_emulator_profile(&self, id: &str) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "DELETE FROM emulator_profiles WHERE id = ?1 AND is_builtin = 0",
             params![id],
@@ -1297,7 +1303,7 @@ impl Database {
 
     /// Returns a set of normalized ROM paths for all currently tracked Emulated games
     pub fn get_existing_emulated_rom_paths(&self) -> AppResult<HashSet<String>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT normalized_path FROM games WHERE source_kind = 'Emulated' AND normalized_path IS NOT NULL",
         )?;
@@ -1311,7 +1317,7 @@ impl Database {
 
     /// Atomically imports a batch of selected ROM candidates as Emulated games
     pub fn import_rom_candidates(&self, candidates: &[RomCandidate]) -> AppResult<usize> {
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self.conn();
         let tx = conn.transaction()?;
         let now = Utc::now().to_rfc3339();
         let mut imported_count = 0;
@@ -1384,7 +1390,7 @@ impl Database {
 
     /// Save an artwork asset (insert or update)
     pub fn save_artwork_asset(&self, asset: &ArtworkAsset) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "INSERT INTO artwork_assets (
                 id, game_id, role, provider, provider_asset_id, source_url,
@@ -1417,7 +1423,7 @@ impl Database {
 
     /// Retrieve all artwork assets associated with a game
     pub fn get_artwork_assets(&self, game_id: &str) -> AppResult<Vec<ArtworkAsset>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, game_id, role, provider, provider_asset_id, source_url,
                     cached_path, width, height, mime_type, attribution, is_selected, created_at
@@ -1435,7 +1441,7 @@ impl Database {
 
     /// Retrieve the currently selected artwork assets for a game mapped by role
     pub fn get_selected_artwork(&self, game_id: &str) -> AppResult<HashMap<String, ArtworkAsset>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, game_id, role, provider, provider_asset_id, source_url,
                     cached_path, width, height, mime_type, attribution, is_selected, created_at
@@ -1455,7 +1461,7 @@ impl Database {
     pub fn get_all_selected_artwork(
         &self,
     ) -> AppResult<HashMap<String, HashMap<String, ArtworkAsset>>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, game_id, role, provider, provider_asset_id, source_url,
                     cached_path, width, height, mime_type, attribution, is_selected, created_at
@@ -1476,7 +1482,7 @@ impl Database {
 
     /// Select a specific artwork asset for a game (unselects others for the same role)
     pub fn select_artwork_asset(&self, game_id: &str, asset_id: &str) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let role: Option<String> = conn
             .query_row(
                 "SELECT role FROM artwork_assets WHERE id = ?1 AND game_id = ?2",
@@ -1500,7 +1506,7 @@ impl Database {
 
     /// Unselect artwork for a specific game and role
     pub fn remove_selected_artwork(&self, game_id: &str, role: &str) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "UPDATE artwork_assets SET is_selected = 0 WHERE game_id = ?1 AND role = ?2",
             params![game_id, role],
@@ -1510,7 +1516,7 @@ impl Database {
 
     /// Get locked fields for a game
     pub fn get_locked_fields(&self, game_id: &str) -> AppResult<HashSet<String>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let raw: Option<String> = conn
             .query_row(
                 "SELECT locked_fields FROM game_overrides WHERE game_id = ?1",
@@ -1530,7 +1536,7 @@ impl Database {
 
     /// Set locked fields for a game
     pub fn set_locked_fields(&self, game_id: &str, fields: &[String]) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let json = serde_json::to_string(fields).unwrap_or_else(|_| "[]".to_string());
         let now = Utc::now().to_rfc3339();
         conn.execute(
@@ -1557,7 +1563,7 @@ impl Database {
         provider_attribution: Option<&str>,
     ) -> AppResult<()> {
         let locked = self.get_locked_fields(game_id)?;
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
 
         let (cur_desc, cur_dev, cur_pub, cur_year, cur_genres, cur_tags): (
@@ -1655,7 +1661,7 @@ impl Database {
     }
 
     pub fn get_version(&self) -> AppResult<u32> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         migrations::get_current_version(&conn)
     }
 
@@ -1672,7 +1678,7 @@ impl Database {
         duration_seconds: u64,
         is_approximate: bool,
     ) -> AppResult<GameSession> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let session_id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
 
@@ -1710,7 +1716,7 @@ impl Database {
 
     /// Retrieve all recorded sessions for a specific game, sorted most recent first.
     pub fn get_game_sessions(&self, game_id: &str) -> AppResult<Vec<GameSession>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, game_id, started_at, ended_at, duration_seconds, is_approximate
              FROM game_sessions
@@ -1745,7 +1751,7 @@ impl Database {
 
     /// Reset playtime for a specific game to 0 and remove its recorded sessions.
     pub fn reset_game_playtime(&self, game_id: &str) -> AppResult<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let now = Utc::now().to_rfc3339();
 
         conn.execute(
@@ -1875,7 +1881,7 @@ mod tests {
         assert!(updated.is_favorite);
 
         // Simulate metadata provider refresh: base game title updated in `games` table
-        let conn = db.conn.lock().unwrap();
+        let conn = db.conn();
         conn.execute(
             "UPDATE games SET title = 'New Provider Name' WHERE id = 'game-1'",
             [],
@@ -2155,5 +2161,30 @@ mod tests {
         assert_eq!(games_desc[0].id, "g2");
         assert_eq!(games_desc[1].id, "g1");
         assert_eq!(games_desc[2].id, "g3");
+    }
+
+    #[test]
+    fn test_transaction_rollback_and_mutex_poison_recovery_on_panic() {
+        let db = Database::in_memory().unwrap();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut conn = db.conn();
+            let tx = conn.transaction().unwrap();
+            tx.execute(
+                "INSERT INTO settings (key, value) VALUES ('test_key', 'panic_value')",
+                [],
+            )
+            .unwrap();
+            panic!("Simulated panic inside transaction");
+        }));
+
+        let retrieved = db.get_setting("test_key").unwrap();
+        assert_eq!(retrieved, None);
+
+        let set_res = db.set_setting("test_key", "recovered_value");
+        assert!(set_res.is_ok());
+        assert_eq!(
+            db.get_setting("test_key").unwrap(),
+            Some("recovered_value".to_string())
+        );
     }
 }

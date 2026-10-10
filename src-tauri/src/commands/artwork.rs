@@ -317,8 +317,16 @@ pub async fn apply_artwork_asset(
         created_at: chrono::Utc::now().to_rfc3339(),
     };
 
-    state.db.save_artwork_asset(&asset)?;
-    state.db.select_artwork_asset(&payload.game_id, &asset.id)?;
+    let db = state.db.clone();
+    let asset_clone = asset.clone();
+    let gid = payload.game_id.clone();
+    tokio::task::spawn_blocking(move || -> AppResult<()> {
+        db.save_artwork_asset(&asset_clone)?;
+        db.select_artwork_asset(&gid, &asset_clone.id)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("Artwork task failed: {}", e)))??;
 
     info!(
         game_id = %payload.game_id,
@@ -357,8 +365,16 @@ pub async fn select_local_artwork(
         created_at: chrono::Utc::now().to_rfc3339(),
     };
 
-    state.db.save_artwork_asset(&asset)?;
-    state.db.select_artwork_asset(&payload.game_id, &asset.id)?;
+    let db = state.db.clone();
+    let asset_clone = asset.clone();
+    let gid = payload.game_id.clone();
+    tokio::task::spawn_blocking(move || -> AppResult<()> {
+        db.save_artwork_asset(&asset_clone)?;
+        db.select_artwork_asset(&gid, &asset_clone.id)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("Local artwork task failed: {}", e)))??;
 
     info!(
         game_id = %payload.game_id,

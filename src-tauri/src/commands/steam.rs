@@ -13,7 +13,10 @@ pub async fn get_steam_status(state: State<'_, AppState>) -> AppResult<SteamStat
 #[tauri::command]
 pub async fn rescan_steam(state: State<'_, AppState>) -> AppResult<SteamScanResult> {
     info!("Triggering Steam library rescan");
-    steam::rescan_steam_games(&state.db)
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || steam::rescan_steam_games(&db))
+        .await
+        .map_err(|e| crate::error::AppError::Internal(format!("Steam rescan task failed: {}", e)))?
 }
 
 #[tauri::command]
