@@ -10,6 +10,11 @@ export interface VirtualizedLibraryProps {
   selectedGame: Game | null;
   onSelectGame: (game: Game) => void;
   playtimeTrackingEnabled: boolean;
+  onContextMenu?: (
+    game: Game,
+    event: React.MouseEvent | { clientX: number; clientY: number },
+    targetElement?: HTMLElement
+  ) => void;
 }
 
 export function getColumnCount(width: number, size: 'small' | 'medium' | 'large'): number {
@@ -42,6 +47,7 @@ export const VirtualizedLibrary: React.FC<VirtualizedLibraryProps> = ({
   selectedGame,
   onSelectGame,
   playtimeTrackingEnabled,
+  onContextMenu,
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollOffsetRef = useRef<number>(0);
@@ -150,6 +156,7 @@ export const VirtualizedLibrary: React.FC<VirtualizedLibraryProps> = ({
                     onSelect={onSelectGame}
                     viewMode="list"
                     playtimeTrackingEnabled={playtimeTrackingEnabled}
+                    onContextMenu={onContextMenu}
                   />
                 </div>
               </div>
@@ -186,6 +193,7 @@ export const VirtualizedLibrary: React.FC<VirtualizedLibraryProps> = ({
                     onSelect={onSelectGame}
                     viewMode="grid"
                     playtimeTrackingEnabled={playtimeTrackingEnabled}
+                    onContextMenu={onContextMenu}
                   />
                 ))}
               </div>

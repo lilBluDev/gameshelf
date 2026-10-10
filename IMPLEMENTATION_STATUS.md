@@ -36,7 +36,7 @@
 | Settings Completeness & Appearance Customization | Implemented | `SettingsModal.tsx` supports launch on startup, minimize to tray, close to tray, 6 accent colors, reduced motion mode, and card density |
 | Virtualized Grid & List Windowing | Implemented | `src/components/VirtualizedLibrary.tsx` uses `@tanstack/react-virtual` for windowed rendering with responsive column calculation and scroll restoration |
 | 1,000 & 5,000 Games Performance Benchmarks | Implemented | Verified in `test_performance_1000_games.rs` (insert: 586ms, retrieve: 31ms, search: 5ms) and `src/services/benchmark.test.tsx` (5,000 synthetic games rendered DOM card count strictly bounded to 30) |
-| Complete Quality Gate Suite | Implemented | 85/85 Rust tests (`cargo test`), 49/49 frontend tests (`pnpm test`), `cargo clippy -- -D warnings`, `cargo fmt --check` all passing |
+| Complete Quality Gate Suite | Implemented | 85/85 Rust tests (`cargo test`), 61/61 frontend tests (`pnpm test`), `cargo clippy -- -D warnings`, `cargo fmt --check` all passing |
 | Windows Desktop Production Packaging | Implemented | `pnpm tauri build` generates MSI (`GameShelf_0.1.0_x64_en-US.msi`, 6.57 MiB / 6,893,568 bytes) and NSIS setup (`GameShelf_0.1.0_x64-setup.exe`, 4.64 MiB / 4,861,617 bytes) |
 | Single-source App Branding Config | Implemented | `src/config/appConfig.ts` houses app name, bundle ID, accent color, and logo path |
 | Design Tokens & Theme System | Implemented | `tailwind.config.js` and `src/index.css` define dark, light, system theme tokens and respect `prefers-reduced-motion` |
@@ -101,6 +101,7 @@
 | Native WinReg & Strict Steam URI Parser (A4) | Implemented | Replaced `reg.exe` with `winreg` crate, replaced `rundll32` with `ShellExecuteW`, strictly validates `steam://rungameid/<digits>` where digits fit in `u32` |
 | Database Mutex Poison Recovery & Spawn Blocking (A5) | Implemented | `src-tauri/src/db/mod.rs` recovers from poisoned mutex locks; heavy scan/import/artwork tasks offloaded to `tokio::task::spawn_blocking` |
 | Grid & List Virtualization (A6) | Implemented | `@tanstack/react-virtual` renders responsive virtualized window for grid and list; bounded DOM card count verified with 5,000 games |
+| Accessible Context Menu & Action Registry (Part B) | Implemented | Unified action registry in `src/features/library/gameActions.ts`; custom accessible ContextMenu supporting right-click, Shift+F10, Context Menu key, and overflow button in `GameDetailPanel`; 61 frontend tests passing |
 
 ---
 

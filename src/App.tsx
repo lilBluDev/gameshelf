@@ -11,6 +11,11 @@ import { ScanFolderModal } from './components/ScanFolderModal';
 import { ScanRomsModal } from './components/ScanRomsModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { OnboardingModal } from './components/OnboardingModal';
+import { ContextMenu } from './components/ContextMenu';
+import { getGameActions } from './features/library/gameActions';
+import { ArtworkPickerModal } from './components/ArtworkPickerModal';
+import { refreshGameMetadata } from './services/artwork';
+import { Trash2 } from 'lucide-react';
 import { api, isTauri } from './services/api';
 import { AppInfo, AppSettings, CommandError, SortField, ViewMode } from './types/api';
 import { Game } from './types/models';
@@ -39,6 +44,15 @@ export const App: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortField>('title');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false);
+  const [contextMenuState, setContextMenuState] = useState<{
+    x: number;
+    y: number;
+    game: Game;
+    originElement?: HTMLElement;
+  } | null>(null);
+  const [gameToRemove, setGameToRemove] = useState<Game | null>(null);
+  const [artworkPickerGame, setArtworkPickerGame] = useState<Game | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isAddGameOpen, setIsAddGameOpen] = useState(false);
@@ -223,6 +237,7 @@ export const App: React.FC = () => {
   const handleGameAdded = (newGame: Game) => {
     setGames((prev) => [newGame, ...prev]);
     setSelectedGame(newGame);
+    setIsDetailPanelOpen(true);
     addToast('success', 'Game Added', `"${newGame.title}" has been added to your library.`);
   };
 
@@ -326,6 +341,122 @@ export const App: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable);
+
+      if (isInput) {
+        return;
+      }
+
+      if (target?.closest('[data-testid="game-card"]')) {
+        e.preventDefault();
+        return;
+      }
+
+      if (!import.meta.env.DEV) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('contextmenu', handleContextMenu);
+    return () => window.removeEventListener('contextmenu', handleContextMenu);
+  }, []);
+
+  const handleSelectGame = (game: Game) => {
+    setSelectedGame(game);
+    setIsDetailPanelOpen(true);
+  };
+
+  const handleCardContextMenu = (
+    game: Game,
+    event: React.MouseEvent | { clientX: number; clientY: number },
+    targetElement?: HTMLElement
+  ) => {
+    setSelectedGame(game);
+    setContextMenuState({
+      x: event.clientX,
+      y: event.clientY,
+      game,
+      originElement: targetElement,
+    });
+  };
+
+  const handlePlayFromMenu = async (game: Game) => {
+    try {
+      const res = await api.launchGame(game.id);
+      addToast('success', 'Game Launched', res.message);
+      handleRefreshGames();
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : String(err);
+      addToast('error', 'Launch Failed', msg);
+    }
+  };
+
+  const handleToggleFavoriteFromMenu = async (game: Game) => {
+    try {
+      const updated = await api.updateGame({ id: game.id, is_favorite: !game.is_favorite });
+      setGames((prev) => prev.map((g) => (g.id === game.id ? updated : g)));
+      if (selectedGame?.id === game.id) setSelectedGame(updated);
+      addToast('success', updated.is_favorite ? 'Added to Favorites' : 'Removed from Favorites', `"${game.title}" updated`);
+    } catch (err: unknown) {
+      addToast('error', 'Update Failed', String(err));
+    }
+  };
+
+  const handleToggleHideFromMenu = async (game: Game) => {
+    try {
+      const nextHidden = !game.is_hidden;
+      const updated = await api.updateGame({ id: game.id, is_hidden: nextHidden });
+      setGames((prev) => prev.map((g) => (g.id === game.id ? updated : g)));
+      if (selectedGame?.id === game.id) setSelectedGame(updated);
+      addToast('success', nextHidden ? 'Game Hidden' : 'Game Unhidden', `"${game.title}" status updated`);
+    } catch (err: unknown) {
+      addToast('error', 'Update Failed', String(err));
+    }
+  };
+
+  const handleOpenFolderFromMenu = async (game: Game) => {
+    try {
+      await api.openFolder(game.id);
+    } catch (err: unknown) {
+      addToast('error', 'Open Folder Failed', String(err));
+    }
+  };
+
+  const handleRefreshMetadataFromMenu = async (game: Game) => {
+    try {
+      addToast('info', 'Refreshing Metadata', `Looking up details for "${game.title}"...`);
+      const updated = await refreshGameMetadata(game.id);
+      setGames((prev) => prev.map((g) => (g.id === game.id ? updated : g)));
+      if (selectedGame?.id === game.id) setSelectedGame(updated);
+      addToast('success', 'Metadata Refreshed', `Updated details for "${game.title}"`);
+    } catch (err: unknown) {
+      addToast('error', 'Refresh Failed', String(err));
+    }
+  };
+
+  const handleConfirmRemoveFromMenu = async () => {
+    if (!gameToRemove) return;
+    try {
+      await api.removeGame(gameToRemove.id);
+      setGames((prev) => prev.filter((g) => g.id !== gameToRemove.id));
+      if (selectedGame?.id === gameToRemove.id) {
+        setSelectedGame(null);
+        setIsDetailPanelOpen(false);
+      }
+      addToast('success', 'Game Removed', `"${gameToRemove.title}" was removed from your library. Game files on disk were untouched.`);
+      setGameToRemove(null);
+    } catch (err: unknown) {
+      addToast('error', 'Removal Failed', String(err));
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg text-text">
       {/* 1. Window Title Bar */}
@@ -386,17 +517,18 @@ export const App: React.FC = () => {
               viewMode={viewMode}
               cardSize={settings.grid_card_size || 'medium'}
               selectedGame={selectedGame}
-              onSelectGame={setSelectedGame}
+              onSelectGame={handleSelectGame}
               playtimeTrackingEnabled={Boolean(settings.playtime_tracking_enabled)}
+              onContextMenu={handleCardContextMenu}
             />
           )}
         </div>
 
         {/* Right Detail Inspection Panel */}
-        {selectedGame && (
+        {selectedGame && isDetailPanelOpen && (
           <GameDetailPanel
             game={selectedGame}
-            onClose={() => setSelectedGame(null)}
+            onClose={() => setIsDetailPanelOpen(false)}
             onGameUpdated={handleGameUpdated}
             onGameRemoved={handleGameRemoved}
             onError={(t, m) => addToast('error', t, m)}
@@ -406,6 +538,79 @@ export const App: React.FC = () => {
         )}
       </div>
 
+      {contextMenuState && (
+        <ContextMenu
+          x={contextMenuState.x}
+          y={contextMenuState.y}
+          entries={getGameActions({
+            game: contextMenuState.game,
+            onPlay: handlePlayFromMenu,
+            onLaunchSettings: (g) => {
+              setSelectedGame(g);
+              setIsDetailPanelOpen(true);
+            },
+            onToggleFavorite: handleToggleFavoriteFromMenu,
+            onToggleHide: handleToggleHideFromMenu,
+            onOpenFolder: handleOpenFolderFromMenu,
+            onChangeArtwork: (g) => setArtworkPickerGame(g),
+            onRefreshMetadata: handleRefreshMetadataFromMenu,
+            onEditDetails: (g) => {
+              setSelectedGame(g);
+              setIsDetailPanelOpen(true);
+            },
+            onRemoveFromLibrary: (g) => setGameToRemove(g),
+          })}
+          onClose={() => setContextMenuState(null)}
+          originElement={contextMenuState.originElement}
+        />
+      )}
+
+      {artworkPickerGame && (
+        <ArtworkPickerModal
+          game={artworkPickerGame}
+          isOpen={Boolean(artworkPickerGame)}
+          onClose={() => setArtworkPickerGame(null)}
+          onArtworkChanged={handleRefreshGames}
+          initialRole="cover"
+        />
+      )}
+
+      {gameToRemove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-100">
+          <div className="w-full max-w-md bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
+            <div className="flex items-center gap-2.5 text-danger border-b border-border pb-2.5">
+              <Trash2 className="w-5 h-5 flex-shrink-0" />
+              <h3 className="text-sm font-bold text-text">Remove from Library?</h3>
+            </div>
+            <div className="space-y-2 text-xs leading-relaxed text-text/80">
+              <p>
+                Are you sure you want to remove <strong>{gameToRemove.title}</strong> from your GameShelf library?
+              </p>
+              <div className="p-3 bg-surface-2 border border-border rounded-card text-muted text-[11px] leading-relaxed">
+                <strong className="text-text block mb-0.5">Files are safe:</strong>
+                This only removes the database entry and custom notes from GameShelf. Your game files, installations, and save data on your disk will <strong>NOT</strong> be deleted.
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setGameToRemove(null)}
+                className="px-3.5 py-1.5 rounded-control text-xs text-muted hover:text-text"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemoveFromMenu}
+                className="px-4 py-1.5 rounded-control bg-danger hover:bg-danger/90 text-white text-xs font-semibold shadow-sm"
+              >
+                Remove from Library
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Game Modal */}
       <AddGameModal
         isOpen={isAddGameOpen}
@@ -413,6 +618,7 @@ export const App: React.FC = () => {
         onGameAdded={handleGameAdded}
         onOpenExisting={(existing) => {
           setSelectedGame(existing);
+          setIsDetailPanelOpen(true);
           setIsAddGameOpen(false);
         }}
         onError={(t, m) => addToast('error', t, m)}

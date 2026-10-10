@@ -4,12 +4,17 @@ import { getDeterministicGradient, getTitleInitials, resolveArtworkSrc } from '.
 import { Heart, Flame, Monitor, Cpu, Clock } from 'lucide-react';
 import { formatPlaytime } from '../utils/playtime';
 
-interface GameCardProps {
+export interface GameCardProps {
   game: Game;
   isSelected: boolean;
   onSelect: (game: Game) => void;
   viewMode: 'grid' | 'list';
   playtimeTrackingEnabled?: boolean;
+  onContextMenu?: (
+    game: Game,
+    event: React.MouseEvent | { clientX: number; clientY: number },
+    targetElement?: HTMLElement
+  ) => void;
 }
 
 export const GameCard: React.FC<GameCardProps> = ({
@@ -18,6 +23,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   onSelect,
   viewMode,
   playtimeTrackingEnabled,
+  onContextMenu,
 }) => {
   const [imgError, setImgError] = useState(false);
   const coverAsset = game.artwork?.cover;
@@ -28,6 +34,30 @@ export const GameCard: React.FC<GameCardProps> = ({
   useEffect(() => {
     setImgError(false);
   }, [coverAsset?.cached_path, coverAsset?.source_url]);
+
+  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onContextMenu?.(game, e, e.currentTarget);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = e.currentTarget.getBoundingClientRect();
+      onContextMenu?.(
+        game,
+        { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 },
+        e.currentTarget
+      );
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onSelect(game);
+    }
+  };
 
   const getSourceIcon = () => {
     switch (game.source_kind) {
@@ -47,15 +77,18 @@ export const GameCard: React.FC<GameCardProps> = ({
     return (
       <div
         data-testid="game-card"
+        role="button"
+        tabIndex={0}
         onClick={() => onSelect(game)}
-        className={`flex items-center justify-between p-3 rounded-card border transition-all cursor-pointer ${
+        onContextMenu={handleContextMenu}
+        onKeyDown={handleKeyDown}
+        className={`flex items-center justify-between p-3 rounded-card border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent ${
           isSelected
             ? 'bg-surface-2 border-accent ring-1 ring-accent'
             : 'bg-surface border-border hover:border-muted/50 hover:bg-surface-2/40'
         }`}
       >
         <div className="flex items-center gap-3 min-w-0">
-          {/* Mini cover thumbnail */}
           <div
             className="w-9 h-12 rounded-control overflow-hidden flex-shrink-0 flex items-center justify-center font-bold text-white text-xs shadow"
             style={{ background: coverSrc ? undefined : gradient }}
@@ -115,8 +148,12 @@ export const GameCard: React.FC<GameCardProps> = ({
   return (
     <div
       data-testid="game-card"
+      role="button"
+      tabIndex={0}
       onClick={() => onSelect(game)}
-      className={`group relative rounded-card overflow-hidden border transition-all duration-150 cursor-pointer flex flex-col ${
+      onContextMenu={handleContextMenu}
+      onKeyDown={handleKeyDown}
+      className={`group relative rounded-card overflow-hidden border transition-all duration-150 cursor-pointer flex flex-col focus:outline-none focus:ring-2 focus:ring-accent ${
         isSelected
           ? 'border-accent ring-2 ring-accent shadow-lg scale-[1.01]'
           : 'border-border hover:border-muted/60 hover:shadow-md'

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Game, ArtworkRole } from '../types/models';
 import { getDeterministicGradient, getTitleInitials, resolveArtworkSrc } from '../utils/artwork';
 import {
@@ -17,11 +17,14 @@ import {
   Sparkles,
   Palette,
   Image as ImageIcon,
+  MoreHorizontal,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { refreshGameMetadata } from '../services/artwork';
 import { ArtworkPickerModal } from './ArtworkPickerModal';
 import { formatPlaytime } from '../utils/playtime';
+import { ContextMenu } from './ContextMenu';
+import { getGameActions } from '../features/library/gameActions';
 
 interface GameDetailPanelProps {
   game: Game | null;
@@ -48,6 +51,9 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
   const [isConfirmingRemove, setIsConfirmingRemove] = useState(false);
   const [isConfirmingResetPlaytime, setIsConfirmingResetPlaytime] = useState(false);
   const [isResettingPlaytime, setIsResettingPlaytime] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
 
   // Approximate session tracking state (Steam & launchers)
   const [activeSessionStart, setActiveSessionStart] = useState<Date | null>(null);
@@ -323,6 +329,49 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
     }
   };
 
+  const handleToggleMenu = () => {
+    if (isMenuOpen) {
+      setIsMenuOpen(false);
+      return;
+    }
+    if (moreButtonRef.current) {
+      const rect = moreButtonRef.current.getBoundingClientRect();
+      setMenuPos({ x: rect.left, y: rect.bottom + 4 });
+      setIsMenuOpen(true);
+    }
+  };
+
+  const handleToggleHide = async () => {
+    try {
+      const nextHidden = !game.is_hidden;
+      const updated = await api.updateGame({ id: game.id, is_hidden: nextHidden });
+      onGameUpdated(updated);
+      onSuccess(nextHidden ? 'Game Hidden' : 'Game Unhidden', `"${game.title}" status updated`);
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : String(err);
+      onError('Update Failed', msg);
+    }
+  };
+
+  const menuEntries = getGameActions({
+    game,
+    isRunning: isLaunching || Boolean(activeSessionStart),
+    activeSession: Boolean(activeSessionStart),
+    onPlay: handleLaunch,
+    onLaunchSettings: startEditingLaunch,
+    onToggleFavorite: handleToggleFavorite,
+    onToggleHide: handleToggleHide,
+    onOpenFolder: handleOpenFolder,
+    onChangeArtwork: () => {
+      setArtworkRole('cover');
+      setIsArtworkModalOpen(true);
+    },
+    onRefreshMetadata: handleRefreshMetadata,
+    onEditDetails: startEditingMetadata,
+    onStopTracking: handleEndSteamSession,
+    onRemoveFromLibrary: () => setIsConfirmingRemove(true),
+  });
+
   return (
     <aside className="w-84 bg-surface border-l border-border flex flex-col justify-between h-full flex-shrink-0 overflow-y-auto select-none">
       <div>
@@ -374,6 +423,16 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               </button>
 
               <button
+                ref={moreButtonRef}
+                onClick={handleToggleMenu}
+                className="p-1.5 rounded-control bg-bg/70 backdrop-blur border border-border text-muted hover:text-white transition-colors"
+                title="More Actions"
+                aria-label="More Actions"
+              >
+                <MoreHorizontal className="w-3.5 h-3.5" />
+              </button>
+
+              <button
                 onClick={onClose}
                 className="p-1.5 rounded-control bg-bg/70 backdrop-blur border border-border text-muted hover:text-white transition-colors"
                 title="Close Panel"
@@ -383,6 +442,16 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             </div>
           </div>
         </div>
+
+        {isMenuOpen && (
+          <ContextMenu
+            x={menuPos.x}
+            y={menuPos.y}
+            entries={menuEntries}
+            onClose={() => setIsMenuOpen(false)}
+            originElement={moreButtonRef.current}
+          />
+        )}
 
         {/* Content Body */}
         <div className="p-4 space-y-4">
