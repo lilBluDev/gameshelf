@@ -25,3 +25,10 @@ Thumbs.db
 *.swo
 .vscode/
 .idea/
+
+# Generated Tauri schemas
+src-tauri/gen/schemas/
+
+# Unused mobile platform icons
+src-tauri/icons/android/
+src-tauri/icons/ios/
