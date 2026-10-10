@@ -114,6 +114,9 @@ export const AddGameModal: React.FC<AddGameModalProps> = ({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Add Game to Library"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 select-none"
       onClick={(e) => {
         if (e.target === e.currentTarget) {

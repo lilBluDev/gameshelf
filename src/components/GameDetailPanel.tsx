@@ -380,7 +380,10 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
   });
 
   return (
-    <aside className="w-84 bg-surface border-l border-border flex flex-col justify-between h-full flex-shrink-0 overflow-y-auto select-none">
+    <aside
+      aria-label={`${game.title} details`}
+      className="w-84 bg-surface border-l border-border flex flex-col justify-between h-full flex-shrink-0 overflow-y-auto select-none"
+    >
       <div>
         {/* Header / Hero banner */}
         <div

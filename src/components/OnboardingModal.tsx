@@ -100,7 +100,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 select-none">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Welcome to GameShelf"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 select-none"
+    >
       <div className="w-full max-w-xl bg-surface border border-border rounded-dialog shadow-2xl flex flex-col overflow-hidden">
         {/* Header with step indicators */}
         <div className="h-14 border-b border-border px-6 flex items-center justify-between bg-surface-2/40 flex-shrink-0">
