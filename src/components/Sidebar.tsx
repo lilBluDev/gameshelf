@@ -9,14 +9,24 @@ import {
   Settings as SettingsIcon,
 } from 'lucide-react';
 
-export type NavFilter = 'all' | 'favorites' | 'steam' | 'pc' | 'emulated';
+export type NavFilter = 'all' | 'favorites' | 'recent' | 'steam' | 'pc' | 'emulated';
 
 export interface SidebarCounts {
   all?: number;
   favorites?: number;
+  recent?: number;
   steam?: number;
   pc?: number;
   emulated?: number;
+}
+
+interface NavItem {
+  id: NavFilter;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  enabled: boolean;
+  count?: number;
+  reason?: string;
 }
 
 interface SidebarProps {
@@ -32,16 +42,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   counts,
 }) => {
-  const mainNavItems = [
+  const mainNavItems: NavItem[] = [
     {
-      id: 'all' as NavFilter,
+      id: 'all',
       label: 'Library',
       icon: Gamepad2,
       enabled: true,
       count: counts?.all,
     },
     {
-      id: 'favorites' as NavFilter,
+      id: 'favorites',
       label: 'Favorites',
       icon: Heart,
       enabled: true,
@@ -51,13 +61,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'recent',
       label: 'Recently Played',
       icon: Clock,
-      enabled: false,
-      reason: 'Not available yet (Playtime tracking out of scope)',
-      count: undefined,
+      enabled: true,
+      count: counts?.recent,
     },
   ];
 
-  const sourceNavItems = [
+  const sourceNavItems: NavItem[] = [
     {
       id: 'steam' as NavFilter,
       label: 'Steam Games',

@@ -17,7 +17,7 @@ GameShelf focuses on privacy, local-first performance, and elegant artwork prese
 - **Settings Skeleton**: General preferences, Appearance (Dark / Light / System theme modes, view mode, card sizes), Library & Scan, Platform Integrations, Emulators, Metadata & Artwork, and Live Diagnostics.
 - **Local SQLite Persistence**: Bundled `rusqlite` database with versioned migrations, WAL mode, foreign keys, and automatic pre-migration backups.
 - **Structured File Logging**: `tracing-subscriber` daily rotating log files stored in the local application log directory.
-- **Privacy Notice**: 100% local-first. No telemetry, no session tracking, and no cloud dependencies.
+- **Privacy Notice**: 100% local-first. No remote telemetry, cloud sync, or external tracking. Process-tree playtime tracking operates strictly on this machine in local SQLite and is completely opt-in.
 
 ### Manual Library & Direct Launch (Phase 2)
 - **Add Game Workflow**: Seamless flow to add standalone executables (`.exe`) and Windows shortcuts (`.lnk`).

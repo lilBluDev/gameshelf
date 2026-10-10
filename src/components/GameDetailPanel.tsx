@@ -18,6 +18,7 @@ import {
   Palette,
   Image as ImageIcon,
   MoreHorizontal,
+  Square,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { refreshGameMetadata } from '../services/artwork';
@@ -34,6 +35,9 @@ interface GameDetailPanelProps {
   onError: (title: string, message: string) => void;
   onSuccess: (title: string, message: string) => void;
   playtimeTrackingEnabled?: boolean;
+  isTrackingActive?: boolean;
+  onStopTracking?: () => Promise<void>;
+  onOpenSettings?: () => void;
 }
 
 export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
@@ -44,6 +48,9 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
   onError,
   onSuccess,
   playtimeTrackingEnabled,
+  isTrackingActive,
+  onStopTracking,
+  onOpenSettings,
 }) => {
   const [isLaunching, setIsLaunching] = useState(false);
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
@@ -355,9 +362,10 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
   const menuEntries = getGameActions({
     game,
-    isRunning: isLaunching || Boolean(activeSessionStart),
-    activeSession: Boolean(activeSessionStart),
+    isRunning: isLaunching || Boolean(isTrackingActive) || Boolean(activeSessionStart),
+    activeSession: Boolean(isTrackingActive) || Boolean(activeSessionStart),
     onPlay: handleLaunch,
+    onStopTracking: onStopTracking ? () => onStopTracking() : handleEndSteamSession,
     onLaunchSettings: startEditingLaunch,
     onToggleFavorite: handleToggleFavorite,
     onToggleHide: handleToggleHide,
@@ -368,7 +376,6 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
     },
     onRefreshMetadata: handleRefreshMetadata,
     onEditDetails: startEditingMetadata,
-    onStopTracking: handleEndSteamSession,
     onRemoveFromLibrary: () => setIsConfirmingRemove(true),
   });
 
@@ -539,10 +546,12 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
           <div className="space-y-1.5">
             <button
               onClick={handleLaunch}
-              disabled={isLaunching}
+              disabled={isLaunching || Boolean(isTrackingActive)}
               className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-control font-semibold text-xs transition-all shadow-md ${
                 game.status === 'Missing'
                   ? 'bg-surface-2 border border-border text-text hover:bg-border'
+                  : isTrackingActive
+                  ? 'bg-emerald-600/80 text-white cursor-default'
                   : 'bg-accent hover:bg-accent-hover text-white'
               }`}
             >
@@ -550,6 +559,11 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>Launching...</span>
+                </>
+              ) : isTrackingActive ? (
+                <>
+                  <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
+                  <span>Running</span>
                 </>
               ) : game.status === 'Missing' ? (
                 <>
@@ -563,6 +577,16 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                 </>
               )}
             </button>
+
+            {isTrackingActive && onStopTracking && (
+              <button
+                onClick={onStopTracking}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-control bg-danger/10 hover:bg-danger/20 border border-danger/30 text-xs text-danger transition-colors font-medium"
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+                <span>Stop tracking session</span>
+              </button>
+            )}
 
             <button
               onClick={handleRefreshMetadata}
@@ -590,6 +614,20 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               </div>
             )}
 
+            {!playtimeTrackingEnabled && (
+              <div className="bg-surface-2/40 border border-border/60 rounded-control p-2 mt-2 flex items-center justify-between text-[11px] text-muted">
+                <span>Playtime tracking is off</span>
+                {onOpenSettings && (
+                  <button
+                    onClick={onOpenSettings}
+                    className="text-accent hover:underline font-medium text-[11px]"
+                  >
+                    Open Settings
+                  </button>
+                )}
+              </div>
+            )}
+
             {playtimeTrackingEnabled && (
               <div className="bg-surface-2/60 border border-border rounded-control p-2.5 mt-2 space-y-2">
                 <div className="flex items-center justify-between text-xs">
@@ -612,7 +650,13 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   </div>
                 </div>
 
-                {/* Active Running Session Indicator (Steam) */}
+                <div className="flex items-center justify-between text-[11px] text-muted pt-1 border-t border-border/40">
+                  <span>Sessions: <strong className="text-text font-mono">{game.session_count || 0}</strong></span>
+                  {game.last_played_at ? (
+                    <span>Last: <strong className="text-text font-mono">{new Date(game.last_played_at).toLocaleDateString()}</strong></span>
+                  ) : null}
+                </div>
+
                 {activeSessionStart && (
                   <div className="bg-accent/10 border border-accent/30 rounded p-2 text-xs space-y-1.5">
                     <div className="flex items-center justify-between">
@@ -633,8 +677,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   </div>
                 )}
 
-                {/* Reset Playtime Action */}
-                {(game.playtime_seconds || 0) > 0 && !activeSessionStart && (
+                {(game.playtime_seconds || 0) > 0 && !activeSessionStart && !isTrackingActive && (
                   <div className="flex justify-end pt-0.5">
                     <button
                       onClick={() => setIsConfirmingResetPlaytime(true)}

@@ -13,8 +13,11 @@ use crate::emulators::rom_scanner::RomCandidate;
 use crate::error::{AppError, AppResult};
 use crate::scanner::{ConfidenceLevel, ScanCandidate, ScanSource};
 use schema::{
-    ArtworkAsset, Game, GameOverrides, GameSession, GameStatus, LaunchAction, SourceKind,
+    ArtworkAsset, Game, GameOverrides, GameSession, GameStatus, LaunchAction, PlaySession,
+    SourceKind,
 };
+
+pub const MIN_SESSION_DURATION_SECS: u64 = 15;
 
 #[derive(Clone)]
 pub struct Database {
@@ -27,6 +30,11 @@ impl Database {
         self.conn
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    #[cfg(test)]
+    pub fn conn_for_test(&self) -> std::sync::MutexGuard<'_, Connection> {
+        self.conn()
     }
 
     /// Initialize SQLite database at the specified path and apply any pending migrations.
@@ -230,13 +238,13 @@ impl Database {
                 genres, tags, source_kind, source_id, install_dir, launch_action,
                 status, last_scanned_at, is_favorite, is_hidden, notes, user_tags,
                 match_confidence, provider_attribution, created_at, updated_at,
-                last_launched_at, normalized_path, playtime_seconds
+                last_launched_at, normalized_path, playtime_seconds, session_count, last_played_at
             ) VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7,
                 ?8, ?9, ?10, ?11, ?12, ?13,
                 ?14, ?15, ?16, ?17, ?18, ?19,
                 ?20, ?21, ?22, ?23,
-                ?24, ?25, ?26
+                ?24, ?25, ?26, ?27, ?28
             )",
             params![
                 game.id,
@@ -269,6 +277,8 @@ impl Database {
                 game.last_launched_at,
                 game.normalized_path,
                 game.playtime_seconds as i64,
+                game.session_count as i64,
+                game.last_played_at,
             ],
         )?;
 
@@ -303,7 +313,9 @@ impl Database {
                 g.last_launched_at,
                 g.normalized_path,
                 g.created_at,
-                g.playtime_seconds
+                g.playtime_seconds,
+                g.session_count,
+                g.last_played_at
             FROM games g
             LEFT JOIN game_overrides go ON go.game_id = g.id
             WHERE g.id = ?1";
@@ -359,7 +371,9 @@ impl Database {
                 g.last_launched_at,
                 g.normalized_path,
                 g.created_at,
-                g.playtime_seconds
+                g.playtime_seconds,
+                g.session_count,
+                g.last_played_at
             FROM games g
             LEFT JOIN game_overrides go ON go.game_id = g.id
             WHERE g.normalized_path = ?1";
@@ -551,7 +565,9 @@ impl Database {
                 g.last_launched_at,
                 g.normalized_path,
                 g.created_at,
-                g.playtime_seconds
+                g.playtime_seconds,
+                g.session_count,
+                g.last_played_at
             FROM games g
             LEFT JOIN game_overrides go ON go.game_id = g.id
             WHERE g.source_kind = ?1 AND g.source_id = ?2";
@@ -940,7 +956,9 @@ impl Database {
                 g.last_launched_at,
                 g.normalized_path,
                 g.created_at,
-                g.playtime_seconds
+                g.playtime_seconds,
+                g.session_count,
+                g.last_played_at
             FROM games g
             LEFT JOIN game_overrides go ON go.game_id = g.id
             WHERE 1=1",
@@ -1108,6 +1126,8 @@ impl Database {
             normalized_path: row.get(22)?,
             created_at: row.get(23)?,
             playtime_seconds: row.get::<_, i64>(24).unwrap_or(0).max(0) as u64,
+            session_count: row.get::<_, i64>(25).unwrap_or(0).max(0) as u32,
+            last_played_at: row.get(26).ok().flatten(),
             artwork: None,
         })
     }
@@ -1669,7 +1689,251 @@ impl Database {
         &self.path
     }
 
-    /// Record a game session and update total playtime on the game.
+    pub fn create_play_session(
+        &self,
+        game_id: &str,
+        started_at: &str,
+        tracking_method: &str,
+    ) -> AppResult<PlaySession> {
+        let conn = self.conn();
+        let session_id = uuid::Uuid::new_v4().to_string();
+
+        conn.execute(
+            "INSERT INTO play_sessions (id, game_id, started_at, ended_at, last_seen_at, duration_secs, tracking_method, end_reason)
+             VALUES (?1, ?2, ?3, NULL, ?3, 0, ?4, NULL)",
+            params![session_id, game_id, started_at, tracking_method],
+        )?;
+
+        Ok(PlaySession {
+            id: session_id,
+            game_id: game_id.to_string(),
+            started_at: started_at.to_string(),
+            ended_at: None,
+            last_seen_at: started_at.to_string(),
+            duration_secs: 0,
+            tracking_method: tracking_method.to_string(),
+            end_reason: None,
+        })
+    }
+
+    pub fn heartbeat_play_session(&self, session_id: &str, last_seen_at: &str) -> AppResult<()> {
+        let conn = self.conn();
+        conn.execute(
+            "UPDATE play_sessions SET last_seen_at = ?1 WHERE id = ?2 AND ended_at IS NULL",
+            params![last_seen_at, session_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn close_play_session(
+        &self,
+        session_id: &str,
+        ended_at: &str,
+        end_reason: &str,
+    ) -> AppResult<Option<PlaySession>> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+
+        let session_row: Option<(String, String, String, String)> = tx
+            .query_row(
+                "SELECT game_id, started_at, last_seen_at, tracking_method FROM play_sessions WHERE id = ?1",
+                params![session_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .optional()?;
+
+        let (game_id, started_at, _last_seen_at, tracking_method) = match session_row {
+            Some(row) => row,
+            None => return Ok(None),
+        };
+
+        let start_dt = chrono::DateTime::parse_from_rfc3339(&started_at)
+            .map(|dt| dt.with_timezone(&chrono::Utc))
+            .unwrap_or_else(|_| chrono::Utc::now());
+        let end_dt = chrono::DateTime::parse_from_rfc3339(ended_at)
+            .map(|dt| dt.with_timezone(&chrono::Utc))
+            .unwrap_or_else(|_| chrono::Utc::now());
+
+        let duration_secs = (end_dt - start_dt).num_seconds().max(0) as u64;
+
+        if duration_secs < MIN_SESSION_DURATION_SECS {
+            tx.execute(
+                "DELETE FROM play_sessions WHERE id = ?1",
+                params![session_id],
+            )?;
+            tx.commit()?;
+            return Ok(None);
+        }
+
+        let now = chrono::Utc::now().to_rfc3339();
+
+        tx.execute(
+            "UPDATE play_sessions
+             SET ended_at = ?1, last_seen_at = ?1, duration_secs = ?2, end_reason = ?3
+             WHERE id = ?4",
+            params![ended_at, duration_secs as i64, end_reason, session_id],
+        )?;
+
+        tx.execute(
+            "UPDATE games
+             SET playtime_seconds = playtime_seconds + ?1,
+                 session_count = session_count + 1,
+                 last_played_at = ?2,
+                 updated_at = ?3
+             WHERE id = ?4",
+            params![duration_secs as i64, ended_at, now, game_id],
+        )?;
+
+        tx.commit()?;
+
+        Ok(Some(PlaySession {
+            id: session_id.to_string(),
+            game_id,
+            started_at,
+            ended_at: Some(ended_at.to_string()),
+            last_seen_at: ended_at.to_string(),
+            duration_secs,
+            tracking_method,
+            end_reason: Some(end_reason.to_string()),
+        }))
+    }
+
+    pub fn cleanup_dangling_sessions(&self) -> AppResult<usize> {
+        let mut conn = self.conn();
+        let dangling: Vec<(String, String, String, String, String)> = {
+            let mut stmt = conn.prepare(
+                "SELECT id, game_id, started_at, last_seen_at, tracking_method
+                 FROM play_sessions
+                 WHERE ended_at IS NULL",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            })?;
+            let mut res = Vec::new();
+            for r in rows {
+                res.push(r?);
+            }
+            res
+        };
+
+        if dangling.is_empty() {
+            return Ok(0);
+        }
+
+        let tx = conn.transaction()?;
+        let now = chrono::Utc::now().to_rfc3339();
+        let mut closed_count = 0;
+
+        for (id, game_id, started_at, last_seen_at, _tracking_method) in dangling {
+            let start_dt = chrono::DateTime::parse_from_rfc3339(&started_at)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .unwrap_or_else(|_| chrono::Utc::now());
+            let last_dt = chrono::DateTime::parse_from_rfc3339(&last_seen_at)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .unwrap_or_else(|_| chrono::Utc::now());
+
+            let duration_secs = (last_dt - start_dt).num_seconds().max(0) as u64;
+
+            if duration_secs < MIN_SESSION_DURATION_SECS {
+                tx.execute("DELETE FROM play_sessions WHERE id = ?1", params![id])?;
+            } else {
+                tx.execute(
+                    "UPDATE play_sessions
+                     SET ended_at = ?1, duration_secs = ?2, end_reason = 'interrupted'
+                     WHERE id = ?3",
+                    params![last_seen_at, duration_secs as i64, id],
+                )?;
+
+                tx.execute(
+                    "UPDATE games
+                     SET playtime_seconds = playtime_seconds + ?1,
+                         session_count = session_count + 1,
+                         last_played_at = ?2,
+                         updated_at = ?3
+                     WHERE id = ?4",
+                    params![duration_secs as i64, last_seen_at, now, game_id],
+                )?;
+                closed_count += 1;
+            }
+        }
+
+        tx.commit()?;
+        Ok(closed_count)
+    }
+
+    pub fn get_play_sessions(&self, game_id: &str) -> AppResult<Vec<PlaySession>> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(
+            "SELECT id, game_id, started_at, ended_at, last_seen_at, duration_secs, tracking_method, end_reason
+             FROM play_sessions
+             WHERE game_id = ?1
+             ORDER BY started_at DESC",
+        )?;
+
+        let rows = stmt.query_map(params![game_id], |row| {
+            Ok(PlaySession {
+                id: row.get(0)?,
+                game_id: row.get(1)?,
+                started_at: row.get(2)?,
+                ended_at: row.get(3)?,
+                last_seen_at: row.get(4)?,
+                duration_secs: row.get::<_, i64>(5).unwrap_or(0).max(0) as u64,
+                tracking_method: row.get(6)?,
+                end_reason: row.get(7)?,
+            })
+        })?;
+
+        let mut sessions = Vec::new();
+        for s in rows {
+            sessions.push(s?);
+        }
+        Ok(sessions)
+    }
+
+    pub fn reset_game_playtime(&self, game_id: &str) -> AppResult<()> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let now = chrono::Utc::now().to_rfc3339();
+
+        tx.execute(
+            "DELETE FROM play_sessions WHERE game_id = ?1",
+            params![game_id],
+        )?;
+        tx.execute(
+            "DELETE FROM game_sessions WHERE game_id = ?1",
+            params![game_id],
+        )?;
+        tx.execute(
+            "UPDATE games SET playtime_seconds = 0, session_count = 0, last_played_at = NULL, updated_at = ?1 WHERE id = ?2",
+            params![now, game_id],
+        )?;
+
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn clear_all_playtime(&self) -> AppResult<()> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let now = chrono::Utc::now().to_rfc3339();
+
+        tx.execute("DELETE FROM play_sessions", [])?;
+        tx.execute("DELETE FROM game_sessions", [])?;
+        tx.execute(
+            "UPDATE games SET playtime_seconds = 0, session_count = 0, last_played_at = NULL, updated_at = ?1",
+            params![now],
+        )?;
+
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn record_game_session(
         &self,
         game_id: &str,
@@ -1680,29 +1944,36 @@ impl Database {
     ) -> AppResult<GameSession> {
         let conn = self.conn();
         let session_id = uuid::Uuid::new_v4().to_string();
-        let now = Utc::now().to_rfc3339();
+        let now = chrono::Utc::now().to_rfc3339();
+        let tracking_method = if is_approximate {
+            "steam_running_app"
+        } else {
+            "process_tree"
+        };
 
-        conn.execute(
-            "INSERT INTO game_sessions (id, game_id, started_at, ended_at, duration_seconds, is_approximate)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        let _ = conn.execute(
+            "INSERT INTO play_sessions (id, game_id, started_at, ended_at, last_seen_at, duration_secs, tracking_method, end_reason)
+             VALUES (?1, ?2, ?3, ?4, COALESCE(?4, ?3), ?5, ?6, 'exited')",
             params![
                 session_id,
                 game_id,
                 started_at,
                 ended_at,
                 duration_seconds as i64,
-                if is_approximate { 1 } else { 0 },
+                tracking_method,
             ],
-        )?;
+        );
 
-        conn.execute(
+        let _ = conn.execute(
             "UPDATE games
              SET playtime_seconds = playtime_seconds + ?1,
+                 session_count = session_count + 1,
                  last_launched_at = COALESCE(?2, last_launched_at),
-                 updated_at = ?3
-             WHERE id = ?4",
-            params![duration_seconds as i64, started_at, now, game_id,],
-        )?;
+                 last_played_at = COALESCE(?3, ?2),
+                 updated_at = ?4
+             WHERE id = ?5",
+            params![duration_seconds as i64, started_at, ended_at, now, game_id],
+        );
 
         Ok(GameSession {
             id: session_id,
@@ -1714,56 +1985,19 @@ impl Database {
         })
     }
 
-    /// Retrieve all recorded sessions for a specific game, sorted most recent first.
     pub fn get_game_sessions(&self, game_id: &str) -> AppResult<Vec<GameSession>> {
-        let conn = self.conn();
-        let mut stmt = conn.prepare(
-            "SELECT id, game_id, started_at, ended_at, duration_seconds, is_approximate
-             FROM game_sessions
-             WHERE game_id = ?1
-             ORDER BY started_at DESC",
-        )?;
-
-        let rows = stmt.query_map(params![game_id], |row| {
-            let id: String = row.get(0)?;
-            let gid: String = row.get(1)?;
-            let started_at: String = row.get(2)?;
-            let ended_at: Option<String> = row.get(3)?;
-            let duration_seconds: i64 = row.get(4)?;
-            let is_approximate: i32 = row.get(5)?;
-
-            Ok(GameSession {
-                id,
-                game_id: gid,
-                started_at,
-                ended_at,
-                duration_seconds: duration_seconds.max(0) as u64,
-                is_approximate: is_approximate == 1,
+        let sessions = self.get_play_sessions(game_id)?;
+        Ok(sessions
+            .into_iter()
+            .map(|s| GameSession {
+                id: s.id,
+                game_id: s.game_id,
+                started_at: s.started_at,
+                ended_at: s.ended_at,
+                duration_seconds: s.duration_secs,
+                is_approximate: s.tracking_method != "process_tree",
             })
-        })?;
-
-        let mut sessions = Vec::new();
-        for s in rows {
-            sessions.push(s?);
-        }
-        Ok(sessions)
-    }
-
-    /// Reset playtime for a specific game to 0 and remove its recorded sessions.
-    pub fn reset_game_playtime(&self, game_id: &str) -> AppResult<()> {
-        let conn = self.conn();
-        let now = Utc::now().to_rfc3339();
-
-        conn.execute(
-            "DELETE FROM game_sessions WHERE game_id = ?1",
-            params![game_id],
-        )?;
-        conn.execute(
-            "UPDATE games SET playtime_seconds = 0, updated_at = ?1 WHERE id = ?2",
-            params![now, game_id],
-        )?;
-
-        Ok(())
+            .collect())
     }
 }
 
@@ -1805,6 +2039,8 @@ mod tests {
             normalized_path: Some(path.to_lowercase()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
             playtime_seconds: 0,
+            session_count: 0,
+            last_played_at: None,
             artwork: None,
         }
     }
@@ -1945,6 +2181,8 @@ mod tests {
             normalized_path: Some("c:/steam/steamapps/common/terraria".to_string()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
             playtime_seconds: 0,
+            session_count: 0,
+            last_played_at: None,
             artwork: None,
         };
 
@@ -2021,6 +2259,8 @@ mod tests {
             normalized_path: Some("e:/external/steamapps/common/war thunder".to_string()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
             playtime_seconds: 0,
+            session_count: 0,
+            last_played_at: None,
             artwork: None,
         };
 
@@ -2186,5 +2426,144 @@ mod tests {
             db.get_setting("test_key").unwrap(),
             Some("recovered_value".to_string())
         );
+    }
+
+    #[test]
+    fn test_play_sessions_lifecycle_and_aggregates() {
+        let db = Database::in_memory().unwrap();
+        let game = make_test_game("ps-game-1", "Hollow Knight", "c:/games/hk.exe");
+        db.add_game(&game).unwrap();
+
+        let s_discard = db
+            .create_play_session("ps-game-1", "2026-10-10T12:00:00Z", "process_tree")
+            .unwrap();
+        let closed_discard = db
+            .close_play_session(&s_discard.id, "2026-10-10T12:00:10Z", "exited")
+            .unwrap();
+        assert!(closed_discard.is_none());
+
+        let g_after_discard = db.get_game_by_id("ps-game-1").unwrap().unwrap();
+        assert_eq!(g_after_discard.playtime_seconds, 0);
+        assert_eq!(g_after_discard.session_count, 0);
+        assert_eq!(g_after_discard.last_played_at, None);
+        assert_eq!(db.get_play_sessions("ps-game-1").unwrap().len(), 0);
+
+        let s_kept = db
+            .create_play_session("ps-game-1", "2026-10-10T13:00:00Z", "process_tree")
+            .unwrap();
+        db.heartbeat_play_session(&s_kept.id, "2026-10-10T13:01:00Z")
+            .unwrap();
+        let closed_kept = db
+            .close_play_session(&s_kept.id, "2026-10-10T13:05:00Z", "exited")
+            .unwrap();
+        assert!(closed_kept.is_some());
+        let session_record = closed_kept.unwrap();
+        assert_eq!(session_record.duration_secs, 300);
+        assert_eq!(session_record.end_reason, Some("exited".to_string()));
+
+        let g_after_kept = db.get_game_by_id("ps-game-1").unwrap().unwrap();
+        assert_eq!(g_after_kept.playtime_seconds, 300);
+        assert_eq!(g_after_kept.session_count, 1);
+        assert_eq!(
+            g_after_kept.last_played_at,
+            Some("2026-10-10T13:05:00Z".to_string())
+        );
+
+        let sessions = db.get_play_sessions("ps-game-1").unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].duration_secs, 300);
+    }
+
+    #[test]
+    fn test_crash_recovery_dangling_sessions() {
+        let db = Database::in_memory().unwrap();
+        let game = make_test_game("ps-crash-1", "Dead Cells", "c:/games/dc.exe");
+        db.add_game(&game).unwrap();
+
+        let s1 = db
+            .create_play_session("ps-crash-1", "2026-10-10T14:00:00Z", "process_tree")
+            .unwrap();
+        db.heartbeat_play_session(&s1.id, "2026-10-10T14:02:00Z")
+            .unwrap();
+
+        let s2_short = db
+            .create_play_session("ps-crash-1", "2026-10-10T15:00:00Z", "process_tree")
+            .unwrap();
+        db.heartbeat_play_session(&s2_short.id, "2026-10-10T15:00:05Z")
+            .unwrap();
+
+        let recovered = db.cleanup_dangling_sessions().unwrap();
+        assert_eq!(recovered, 1);
+
+        let sessions = db.get_play_sessions("ps-crash-1").unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].id, s1.id);
+        assert_eq!(sessions[0].duration_secs, 120);
+        assert_eq!(sessions[0].end_reason, Some("interrupted".to_string()));
+        assert_eq!(
+            sessions[0].ended_at,
+            Some("2026-10-10T14:02:00Z".to_string())
+        );
+
+        let g = db.get_game_by_id("ps-crash-1").unwrap().unwrap();
+        assert_eq!(g.playtime_seconds, 120);
+        assert_eq!(g.session_count, 1);
+        assert_eq!(g.last_played_at, Some("2026-10-10T14:02:00Z".to_string()));
+    }
+
+    #[test]
+    fn test_clear_all_playtime_and_reset_game_playtime() {
+        let db = Database::in_memory().unwrap();
+        let g1 = make_test_game("ps-clr-1", "Game 1", "c:/games/g1.exe");
+        let g2 = make_test_game("ps-clr-2", "Game 2", "c:/games/g2.exe");
+        db.add_game(&g1).unwrap();
+        db.add_game(&g2).unwrap();
+
+        let s1 = db
+            .create_play_session("ps-clr-1", "2026-10-10T10:00:00Z", "process_tree")
+            .unwrap();
+        db.close_play_session(&s1.id, "2026-10-10T10:10:00Z", "exited")
+            .unwrap();
+
+        let s2 = db
+            .create_play_session("ps-clr-2", "2026-10-10T11:00:00Z", "process_tree")
+            .unwrap();
+        db.close_play_session(&s2.id, "2026-10-10T11:20:00Z", "exited")
+            .unwrap();
+
+        db.reset_game_playtime("ps-clr-1").unwrap();
+        let after_reset = db.get_game_by_id("ps-clr-1").unwrap().unwrap();
+        assert_eq!(after_reset.playtime_seconds, 0);
+        assert_eq!(after_reset.session_count, 0);
+        assert_eq!(after_reset.last_played_at, None);
+        assert_eq!(db.get_play_sessions("ps-clr-1").unwrap().len(), 0);
+
+        let g2_before = db.get_game_by_id("ps-clr-2").unwrap().unwrap();
+        assert_eq!(g2_before.playtime_seconds, 1200);
+        assert_eq!(g2_before.session_count, 1);
+
+        db.clear_all_playtime().unwrap();
+        let g2_after = db.get_game_by_id("ps-clr-2").unwrap().unwrap();
+        assert_eq!(g2_after.playtime_seconds, 0);
+        assert_eq!(g2_after.session_count, 0);
+        assert_eq!(g2_after.last_played_at, None);
+        assert_eq!(db.get_play_sessions("ps-clr-2").unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_remove_game_cascades_to_play_sessions() {
+        let db = Database::in_memory().unwrap();
+        let game = make_test_game("ps-casc-1", "Cascade Game", "c:/games/casc.exe");
+        db.add_game(&game).unwrap();
+
+        let s = db
+            .create_play_session("ps-casc-1", "2026-10-10T10:00:00Z", "process_tree")
+            .unwrap();
+        db.close_play_session(&s.id, "2026-10-10T10:05:00Z", "exited")
+            .unwrap();
+        assert_eq!(db.get_play_sessions("ps-casc-1").unwrap().len(), 1);
+
+        db.remove_game("ps-casc-1").unwrap();
+        assert_eq!(db.get_play_sessions("ps-casc-1").unwrap().len(), 0);
     }
 }

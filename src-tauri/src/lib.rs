@@ -9,11 +9,14 @@ pub mod logging;
 pub mod metadata;
 pub mod platform;
 pub mod scanner;
+pub mod tracking;
 pub mod tray;
 
 use std::path::PathBuf;
 use std::sync::Arc;
+#[cfg(not(test))]
 use tauri::Manager;
+#[cfg(not(test))]
 use tracing::info;
 
 use cache::artwork::ArtworkCache;
@@ -26,8 +29,10 @@ pub struct AppState {
     pub scan_cancel_flag: Arc<std::sync::atomic::AtomicBool>,
     pub artwork_cache: Arc<ArtworkCache>,
     pub tray_available: Arc<std::sync::atomic::AtomicBool>,
+    pub playtime_manager: Arc<tracking::PlaytimeManager>,
 }
 
+#[cfg(not(test))]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -74,6 +79,12 @@ pub fn run() {
                 tracing::warn!("Failed to setup system tray: {}", e);
             }
 
+            let _ = db.cleanup_dangling_sessions();
+            let playtime_manager = Arc::new(tracking::PlaytimeManager::new(
+                Arc::new(db.clone()),
+                Some(app.handle().clone()),
+            ));
+
             app.manage(AppState {
                 db,
                 data_dir,
@@ -81,6 +92,7 @@ pub fn run() {
                 scan_cancel_flag,
                 artwork_cache,
                 tray_available,
+                playtime_manager,
             });
 
             info!("GameShelf backend setup completed successfully");
@@ -154,6 +166,9 @@ pub fn run() {
             commands::games::record_game_session,
             commands::games::get_game_sessions,
             commands::games::reset_game_playtime,
+            commands::games::stop_tracking_session,
+            commands::games::clear_all_playtime,
+            commands::games::get_active_sessions,
             commands::steam::get_steam_status,
             commands::steam::rescan_steam,
             commands::steam::configure_steam_path,

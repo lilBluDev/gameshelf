@@ -14,7 +14,7 @@ import {
   SteamScanResult,
   SteamStatusResponse,
 } from '../types/api';
-import { Game, GameSession } from '../types/models';
+import { ActiveSessionInfo, Game, GameSession } from '../types/models';
 import { DEV_MOCK_GAMES } from '../fixtures/mockGames';
 
 // Detect whether we are running inside the Tauri webview runtime
@@ -435,8 +435,27 @@ function fallbackHandler<T>(cmd: string, args?: Record<string, unknown>): Promis
       const game = previewGames.find((g) => g.id === gameId);
       if (game) {
         game.playtime_seconds = 0;
+        game.session_count = 0;
+        game.last_played_at = null;
       }
       return Promise.resolve(undefined as unknown as T);
+    }
+
+    case 'stop_tracking_session': {
+      return Promise.resolve(undefined as unknown as T);
+    }
+
+    case 'clear_all_playtime': {
+      previewGames.forEach((g) => {
+        g.playtime_seconds = 0;
+        g.session_count = 0;
+        g.last_played_at = null;
+      });
+      return Promise.resolve(undefined as unknown as T);
+    }
+
+    case 'get_active_sessions': {
+      return Promise.resolve([] as unknown as T);
     }
 
     default:
@@ -476,6 +495,9 @@ export const api = {
     }),
   getGameSessions: (gameId: string) => callTauri<GameSession[]>('get_game_sessions', { gameId }),
   resetGamePlaytime: (gameId: string) => callTauri<void>('reset_game_playtime', { gameId }),
+  stopTrackingSession: (gameId: string) => callTauri<void>('stop_tracking_session', { gameId }),
+  clearAllPlaytime: () => callTauri<void>('clear_all_playtime'),
+  getActiveSessions: () => callTauri<ActiveSessionInfo[]>('get_active_sessions'),
   openFolder: (gameId: string) => callTauri<boolean>('open_folder', { gameId }),
   getSteamStatus: () => callTauri<SteamStatusResponse>('get_steam_status'),
   rescanSteam: () => callTauri<SteamScanResult>('rescan_steam'),

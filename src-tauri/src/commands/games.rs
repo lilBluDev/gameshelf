@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 use tracing::info;
 use uuid::Uuid;
 
@@ -192,6 +192,8 @@ pub async fn add_manual_game(
         normalized_path: Some(normalized),
         created_at: chrono::Utc::now().to_rfc3339(),
         playtime_seconds: 0,
+        session_count: 0,
+        last_played_at: None,
         artwork: None,
     };
 
@@ -290,7 +292,7 @@ pub async fn remove_game(state: State<'_, AppState>, id: String) -> AppResult<bo
 #[tauri::command]
 pub async fn launch_game(
     state: State<'_, AppState>,
-    app_handle: AppHandle,
+    _app_handle: AppHandle,
     id: String,
 ) -> AppResult<LaunchResult> {
     let game = state
@@ -303,45 +305,21 @@ pub async fn launch_game(
             let _ = state.db.update_last_launched(&id);
             let _ = state.db.update_game_status(&id, GameStatus::Installed);
 
-            // Optional playtime tracking check
-            let tracking_enabled = state
-                .db
-                .get_setting("playtime_tracking_enabled")?
-                .map(|v| v == "true" || v == "1")
-                .unwrap_or(false);
-
-            if tracking_enabled {
-                if let Some(mut child) = maybe_child {
-                    // Spawn background thread to wait on child process exit
-                    let db_clone = state.db.clone();
-                    let app_clone = app_handle.clone();
-                    let game_id = id.clone();
-                    let started_at = chrono::Utc::now().to_rfc3339();
-                    let start_instant = std::time::Instant::now();
-
-                    std::thread::spawn(move || {
-                        let _ = child.wait();
-                        let elapsed = start_instant.elapsed().as_secs();
-                        let ended_at = chrono::Utc::now().to_rfc3339();
-                        if elapsed > 0 {
-                            if let Ok(session) = db_clone.record_game_session(
-                                &game_id,
-                                &started_at,
-                                Some(&ended_at),
-                                elapsed,
-                                false,
-                            ) {
-                                let _ = app_clone.emit("game-playtime-updated", &session);
-                            }
-                        }
-                    });
-                }
+            if let Some(child) = maybe_child {
+                let _ = state
+                    .playtime_manager
+                    .start_child_session(&game, child)
+                    .await;
+            } else if let LaunchAction::Steam { app_id } = &game.launch_action {
+                let _ = state
+                    .playtime_manager
+                    .start_steam_session(&game, *app_id)
+                    .await;
             }
 
             Ok(res)
         }
         Err(err) => {
-            // If the failure was due to missing file, update DB status to Missing
             let err_msg = err.to_string();
             if err_msg.contains("not found") || err_msg.contains("does not exist") {
                 let _ = state.db.update_game_status(&id, GameStatus::Missing);
@@ -349,6 +327,26 @@ pub async fn launch_game(
             Err(err)
         }
     }
+}
+
+#[tauri::command]
+pub async fn stop_tracking_session(state: State<'_, AppState>, game_id: String) -> AppResult<()> {
+    state
+        .playtime_manager
+        .stop_session(&game_id, "stopped_by_user")
+        .await
+}
+
+#[tauri::command]
+pub async fn clear_all_playtime(state: State<'_, AppState>) -> AppResult<()> {
+    state.db.clear_all_playtime()
+}
+
+#[tauri::command]
+pub async fn get_active_sessions(
+    state: State<'_, AppState>,
+) -> AppResult<Vec<crate::tracking::ActiveSessionInfo>> {
+    Ok(state.playtime_manager.get_active_sessions().await)
 }
 
 #[tauri::command]
@@ -492,6 +490,8 @@ mod tests {
             normalized_path: Some("".to_string()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
             playtime_seconds: 0,
+            session_count: 0,
+            last_played_at: None,
         }
     }
 

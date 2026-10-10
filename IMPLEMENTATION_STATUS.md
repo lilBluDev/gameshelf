@@ -19,6 +19,7 @@
 - [x] Phase 6 — Metadata & artwork pipeline (2026-10-10)
 - [x] Phase 7 — Polish, hardening & packaging (2026-10-10)
 - [x] Phase 8 — Local Playtime Tracking (2026-10-10)
+- [x] Phase 9 — Hardening, Context Menus & Process-Tree Tracking (2026-10-10)
 
 ---
 
@@ -26,7 +27,7 @@
 
 | Feature | Status | Evidence / notes |
 |---|---|---|
-| Local Playtime Tracking & Session Recording | Implemented | `game_sessions` table (Migration 6), exact `child.wait()` tracking in background thread for standalone/emulators, approximate session tracking for Steam protocol activation; disabled by default |
+| Local Playtime Tracking & Session Recording | Implemented | `game_sessions` and `play_sessions` tables (Migrations 6 & 7), exact process-tree tracking via Windows Job Objects for standalone/emulators, approximate session tracking for Steam protocol activation; disabled by default |
 | Most Played Sort & Conditional Playtime Badges | Implemented | `TopBar.tsx` and `GameCard.tsx` conditionally render "Most Played" sort and playtime badges only when `playtime_tracking_enabled` is active; auto-resets sort if toggled off |
 | Per-Game Playtime Reset | Implemented | `reset_game_playtime` Tauri command and confirmation dialog in `GameDetailPanel.tsx` safely zeroes playtime and clears session history |
 | First-Launch Onboarding Wizard | Implemented | `src/components/OnboardingModal.tsx` 4-step wizard (Steam detection, folder/ROMs, SGDB key, ready); skippable, persisted via `onboarding_completed` in SQLite |
@@ -36,7 +37,7 @@
 | Settings Completeness & Appearance Customization | Implemented | `SettingsModal.tsx` supports launch on startup, minimize to tray, close to tray, 6 accent colors, reduced motion mode, and card density |
 | Virtualized Grid & List Windowing | Implemented | `src/components/VirtualizedLibrary.tsx` uses `@tanstack/react-virtual` for windowed rendering with responsive column calculation and scroll restoration |
 | 1,000 & 5,000 Games Performance Benchmarks | Implemented | Verified in `test_performance_1000_games.rs` (insert: 586ms, retrieve: 31ms, search: 5ms) and `src/services/benchmark.test.tsx` (5,000 synthetic games rendered DOM card count strictly bounded to 30) |
-| Complete Quality Gate Suite | Implemented | 85/85 Rust tests (`cargo test`), 61/61 frontend tests (`pnpm test`), `cargo clippy -- -D warnings`, `cargo fmt --check` all passing |
+| Complete Quality Gate Suite | Implemented | 94/94 Rust tests (`cargo test`), 61/61 frontend tests (`pnpm test`), `cargo clippy -- -D warnings`, `cargo fmt --check` all passing |
 | Windows Desktop Production Packaging | Implemented | `pnpm tauri build` generates MSI (`GameShelf_0.1.0_x64_en-US.msi`, 6.57 MiB / 6,893,568 bytes) and NSIS setup (`GameShelf_0.1.0_x64-setup.exe`, 4.64 MiB / 4,861,617 bytes) |
 | Single-source App Branding Config | Implemented | `src/config/appConfig.ts` houses app name, bundle ID, accent color, and logo path |
 | Design Tokens & Theme System | Implemented | `tailwind.config.js` and `src/index.css` define dark, light, system theme tokens and respect `prefers-reduced-motion` |
@@ -102,12 +103,13 @@
 | Database Mutex Poison Recovery & Spawn Blocking (A5) | Implemented | `src-tauri/src/db/mod.rs` recovers from poisoned mutex locks; heavy scan/import/artwork tasks offloaded to `tokio::task::spawn_blocking` |
 | Grid & List Virtualization (A6) | Implemented | `@tanstack/react-virtual` renders responsive virtualized window for grid and list; bounded DOM card count verified with 5,000 games |
 | Accessible Context Menu & Action Registry (Part B) | Implemented | Unified action registry in `src/features/library/gameActions.ts`; custom accessible ContextMenu supporting right-click, Shift+F10, Context Menu key, and overflow button in `GameDetailPanel`; 61 frontend tests passing |
+| Process-Tree Playtime Tracking & Session Management (Part C) | Implemented | Local Windows Job Object tracking for standalone/emulated games with child process tree accounting; SQLite session persistence; crash recovery; manual session stop; total playtime reset; strictly local and opt-in |
 
 ---
 
 ## Known limitations
 1. Steam Web API ownership import, store login scraping, and non-installed games are strictly out of scope for v1.
-2. Playtime tracking, background directory watchers, and store accounts are explicitly out of scope for v1.
+2. Background directory watchers and online store accounts are explicitly out of scope for v1. (Local process-tree playtime tracking is implemented in Phase 9 Part C).
 3. Windows drive roots (`C:\`, `D:\`) cannot be selected directly as scan roots for system protection; users must specify a game directory.
 4. SteamGridDB searches require an API key supplied by the user via Settings (free from steamgriddb.com); games without a key gracefully fallback to deterministic gradient initials and official Steam CDN assets for Steam titles.
 
@@ -127,3 +129,4 @@
 11. **Roman & Arabic Numeral Sequel Disambiguation**: Number tokens are canonicalized to a unified representation during title normalization so that e.g. "Doom II" and "Doom 2" match identically, while mismatched sequels (e.g. "Doom" vs "Doom II") receive a heavy score penalty to avoid false positive sequel matches.
 12. **Asset Protocol Zero-IPC Image Serving**: Cached artwork images are served directly through Tauri's `assetProtocol` (`convertFileSrc`) with paths locked down to `$APPDATA` and `$CACHE` directories. Large image byte payloads are never transmitted across the IPC bridge.
 13. **Strict Field Locking**: The `game_overrides.locked_fields` array preserves user-selected artwork roles and metadata overrides. When automatic metadata or artwork refreshes occur, locked fields are unconditionally skipped.
+14. **Process-Tree Playtime Tracking via Windows Job Objects**: Standalone and emulated titles are tracked using Windows Job Objects (`JOBOBJECT_BASIC_PROCESS_ID_LIST`) to account for launcher/bootstrap processes spawning grandchild game processes. Polling every 5 seconds updates `last_seen_at` without disk thrashing, committing the final duration atomically upon process tree termination. Unclean shutdowns recover dangling active sessions on next app launch. Tracking is strictly local, opt-in/configurable, and zero telemetry is collected.

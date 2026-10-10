@@ -39,6 +39,12 @@ pub async fn get_diagnostic_summary(state: State<'_, AppState>) -> AppResult<Str
     let cache_stats = state.artwork_cache.get_stats()?;
     let steam_status = crate::integrations::steam::scanner::detect_steam_installation(None);
     let has_steam = steam_status.is_some();
+    let tracking_enabled = state
+        .db
+        .get_setting("playtime_tracking_enabled")
+        .unwrap_or(None)
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
     let now = chrono::Utc::now().to_rfc3339();
 
     let summary = format!(
@@ -47,6 +53,7 @@ pub async fn get_diagnostic_summary(state: State<'_, AppState>) -> AppResult<Str
         - **Database Schema**: v{} (integrity check: {})\n\
         - **Library Games**: Total: {} (Installed: {}, Missing: {}, Favorites: {})\n\
         - **Steam Integration**: Detected: {}\n\
+        - **Playtime Tracking**: {}\n\
         - **Emulator Profiles**: {} configured\n\
         - **Scan Sources**: {} active folders\n\
         - **Artwork Cache**: {} files ({})\n\
@@ -61,6 +68,11 @@ pub async fn get_diagnostic_summary(state: State<'_, AppState>) -> AppResult<Str
         missing,
         favorites,
         if has_steam { "Yes" } else { "No" },
+        if tracking_enabled {
+            "Enabled"
+        } else {
+            "Disabled"
+        },
         emulator_profiles,
         scan_sources,
         cache_stats.file_count,

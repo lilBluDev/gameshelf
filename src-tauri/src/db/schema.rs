@@ -77,7 +77,23 @@ pub struct Game {
     #[serde(default)]
     pub playtime_seconds: u64,
     #[serde(default)]
+    pub session_count: u32,
+    #[serde(default)]
+    pub last_played_at: Option<String>,
+    #[serde(default)]
     pub artwork: Option<HashMap<String, ArtworkAsset>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaySession {
+    pub id: String,
+    pub game_id: String,
+    pub started_at: String,
+    pub ended_at: Option<String>,
+    pub last_seen_at: String,
+    pub duration_secs: u64,
+    pub tracking_method: String,
+    pub end_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

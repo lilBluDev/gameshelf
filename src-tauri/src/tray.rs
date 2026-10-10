@@ -1,8 +1,14 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
+#[cfg(not(test))]
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
+#[cfg(not(test))]
 use tauri::menu::{Menu, MenuItem};
+#[cfg(not(test))]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
+#[cfg(not(test))]
+use tauri::Manager;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WindowAction {
@@ -43,6 +49,7 @@ pub fn evaluate_window_action(
     }
 }
 
+#[cfg(not(test))]
 pub fn setup_tray(
     app: &AppHandle,
     tray_available: Arc<AtomicBool>,
@@ -99,6 +106,14 @@ pub fn setup_tray(
         .build(app)?;
 
     tray_available.store(true, Ordering::SeqCst);
+    Ok(())
+}
+
+#[cfg(test)]
+pub fn setup_tray(
+    _app: &AppHandle,
+    _tray_available: Arc<AtomicBool>,
+) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 

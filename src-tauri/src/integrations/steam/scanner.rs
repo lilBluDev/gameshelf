@@ -418,6 +418,8 @@ pub fn scan_steam_library(
                 normalized_path: Some(norm_path),
                 created_at: now.clone(),
                 playtime_seconds: 0,
+                session_count: 0,
+                last_played_at: None,
                 artwork: None,
             };
 

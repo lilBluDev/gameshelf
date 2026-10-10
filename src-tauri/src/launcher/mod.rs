@@ -454,8 +454,10 @@ mod tests {
         assert!(result.success);
         assert!(result.pid.is_some());
 
-        // Wait briefly for the batch script to finish writing
-        std::thread::sleep(std::time::Duration::from_millis(300));
+        let start = std::time::Instant::now();
+        while !log_file.exists() && start.elapsed() < std::time::Duration::from_millis(3000) {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
 
         // Assert recorded argument array
         assert!(

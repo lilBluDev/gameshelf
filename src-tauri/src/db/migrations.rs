@@ -42,9 +42,14 @@ pub const MIGRATIONS: &[Migration] = &[
         description: "Add playtime_seconds to games, game_sessions table, and playtime_tracking_enabled setting",
         sql: include_str!("../../migrations/006_phase8_playtime_tracking.sql"),
     },
+    Migration {
+        version: 7,
+        description: "Add play_sessions table and cached aggregates on games",
+        sql: include_str!("../../migrations/007_phase9_play_sessions.sql"),
+    },
 ];
 
-pub const LATEST_VERSION: u32 = 6;
+pub const LATEST_VERSION: u32 = 7;
 
 /// Get the highest applied migration version. Returns 0 if no migrations have been applied.
 pub fn get_current_version(conn: &Connection) -> AppResult<u32> {

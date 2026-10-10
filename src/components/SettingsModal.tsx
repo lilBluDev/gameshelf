@@ -32,6 +32,7 @@ import {
   Copy,
   FolderOpen,
   FileText,
+  Loader2,
 } from 'lucide-react';
 import {
   AppInfo,
@@ -107,6 +108,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [sgdbMessage, setSgdbMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
   const [isClearingCache, setIsClearingCache] = useState(false);
+  const [isConfirmingClearPlaytime, setIsConfirmingClearPlaytime] = useState(false);
+  const [isClearingPlaytime, setIsClearingPlaytime] = useState(false);
+  const [playtimeMessage, setPlaytimeMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleClearAllPlaytime = async () => {
+    setIsClearingPlaytime(true);
+    try {
+      await api.clearAllPlaytime();
+      setPlaytimeMessage({ type: 'success', text: 'All recorded playtime and session history cleared.' });
+      setIsConfirmingClearPlaytime(false);
+      onRefreshGames?.();
+    } catch (e: unknown) {
+      const msg = e && typeof e === 'object' && 'message' in e ? String((e as { message: unknown }).message) : String(e);
+      setPlaytimeMessage({ type: 'error', text: msg || 'Failed to clear playtime data.' });
+    } finally {
+      setIsClearingPlaytime(false);
+    }
+  };
 
   const loadMetadataSettings = async () => {
     try {
@@ -726,6 +745,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       aria-label="Toggle local playtime tracking"
                       className="w-4 h-4 rounded border-border bg-surface text-accent focus:ring-accent focus:ring-offset-0 cursor-pointer accent-accent"
                     />
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    <div className="text-[11px] text-muted leading-relaxed">
+                      Playtime tracking is strictly local to your machine in SQLite. No playtime data, session telemetry, or process lists are ever transmitted to any remote server or third party.
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <div>
+                        <div className="text-xs font-medium text-text">Clear Playtime Data</div>
+                        <div className="text-[11px] text-muted">Zero all accumulated playtime and delete all logged session records across all games.</div>
+                      </div>
+                      <button
+                        onClick={() => setIsConfirmingClearPlaytime(true)}
+                        className="px-3 py-1.5 rounded-control bg-danger/10 hover:bg-danger/20 border border-danger/30 text-xs font-semibold text-danger transition-colors"
+                      >
+                        Clear All Playtime
+                      </button>
+                    </div>
+                    {playtimeMessage && (
+                      <div className={`p-2.5 rounded-control text-xs ${playtimeMessage.type === 'success' ? 'bg-accent/10 border border-accent/30 text-accent' : 'bg-danger/10 border border-danger/30 text-danger'}`}>
+                        {playtimeMessage.text}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2090,6 +2132,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
       </div>
+
+      {isConfirmingClearPlaytime && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-100">
+          <div className="w-full max-w-sm bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-danger/20 border border-danger/40 flex items-center justify-center text-danger flex-shrink-0">
+                <Trash2 className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-text">Clear All Playtime Data?</h3>
+                <p className="text-xs text-muted mt-0.5">
+                  This will permanently zero total playtime and remove all session history for every game in your library.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsConfirmingClearPlaytime(false)}
+                disabled={isClearingPlaytime}
+                className="px-3 py-1.5 rounded-control bg-surface-2 hover:bg-surface-2/80 border border-border text-xs font-medium text-text transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleClearAllPlaytime}
+                disabled={isClearingPlaytime}
+                className="px-4 py-1.5 rounded-control bg-danger hover:bg-danger/90 text-white text-xs font-semibold shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isClearingPlaytime ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                <span>Clear All Playtime</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

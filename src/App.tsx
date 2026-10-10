@@ -18,7 +18,7 @@ import { refreshGameMetadata } from './services/artwork';
 import { Trash2 } from 'lucide-react';
 import { api, isTauri } from './services/api';
 import { AppInfo, AppSettings, CommandError, SortField, ViewMode } from './types/api';
-import { Game } from './types/models';
+import { ActiveSessionInfo, Game } from './types/models';
 
 export const App: React.FC = () => {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
@@ -38,6 +38,7 @@ export const App: React.FC = () => {
   });
 
   const [games, setGames] = useState<Game[]>([]);
+  const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionInfo>>({});
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<NavFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,7 +127,20 @@ export const App: React.FC = () => {
 
   // Listen for background playtime updates (child processes exiting)
   useEffect(() => {
+    api.getActiveSessions()
+      .then((list) => {
+        const map: Record<string, ActiveSessionInfo> = {};
+        list.forEach((s) => {
+          map[s.game_id] = s;
+        });
+        setActiveSessions(map);
+      })
+      .catch(() => {});
+
     let unlisten: (() => void) | undefined;
+    let unlistenStarted: (() => void) | undefined;
+    let unlistenEnded: (() => void) | undefined;
+
     const setupListener = async () => {
       if (isTauri()) {
         try {
@@ -143,14 +157,49 @@ export const App: React.FC = () => {
               );
             }
           );
+
+          unlistenStarted = await listen<{ session_id: string; game_id: string; tracking_method: string }>(
+            'playtime-session-started',
+            (event) => {
+              const { session_id, game_id, tracking_method } = event.payload;
+              setActiveSessions((prev) => ({
+                ...prev,
+                [game_id]: {
+                  session_id,
+                  game_id,
+                  started_at: new Date().toISOString(),
+                  tracking_method,
+                },
+              }));
+            }
+          );
+
+          unlistenEnded = await listen<{ session_id: string; game_id: string; duration_secs: number; end_reason: string }>(
+            'playtime-session-ended',
+            (event) => {
+              const { game_id } = event.payload;
+              setActiveSessions((prev) => {
+                const next = { ...prev };
+                delete next[game_id];
+                return next;
+              });
+              api.listGames({ filter: 'all' })
+                .then((res) => {
+                  setGames(res.games);
+                })
+                .catch(() => {});
+            }
+          );
         } catch (e) {
-          console.warn('Failed to register game-playtime-updated listener', e);
+          console.warn('Failed to register playtime listeners', e);
         }
       }
     };
     setupListener();
     return () => {
       if (unlisten) unlisten();
+      if (unlistenStarted) unlistenStarted();
+      if (unlistenEnded) unlistenEnded();
     };
   }, []);
 
@@ -260,6 +309,14 @@ export const App: React.FC = () => {
     // Filter
     if (activeFilter === 'favorites') {
       result = result.filter((g) => g.is_favorite);
+    } else if (activeFilter === 'recent') {
+      result = result
+        .filter((g) => Boolean(g.last_played_at || g.last_launched_at))
+        .sort((a, b) => {
+          const tA = a.last_played_at || a.last_launched_at || '';
+          const tB = b.last_played_at || b.last_launched_at || '';
+          return tB.localeCompare(tA);
+        });
     } else if (activeFilter === 'steam') {
       result = result.filter((g) => g.source_kind === 'Steam');
     } else if (activeFilter === 'pc') {
@@ -268,7 +325,6 @@ export const App: React.FC = () => {
       result = result.filter((g) => g.source_kind === 'Emulated');
     }
 
-    // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
@@ -281,7 +337,6 @@ export const App: React.FC = () => {
       );
     }
 
-    // Sort
     result.sort((a, b) => {
       if (sortBy === 'title') {
         return a.sort_title.localeCompare(b.sort_title);
@@ -312,11 +367,11 @@ export const App: React.FC = () => {
     return result;
   }, [games, activeFilter, searchQuery, sortBy]);
 
-  // Count games by category for real sidebar badges
   const counts = useMemo(() => {
     return {
       all: games.length,
       favorites: games.filter((g) => g.is_favorite).length,
+      recent: games.filter((g) => Boolean(g.last_played_at || g.last_launched_at)).length,
       steam: games.filter((g) => g.source_kind === 'Steam').length,
       pc: games.filter(
         (g) =>
@@ -524,7 +579,6 @@ export const App: React.FC = () => {
           )}
         </div>
 
-        {/* Right Detail Inspection Panel */}
         {selectedGame && isDetailPanelOpen && (
           <GameDetailPanel
             game={selectedGame}
@@ -534,6 +588,23 @@ export const App: React.FC = () => {
             onError={(t, m) => addToast('error', t, m)}
             onSuccess={(t, m) => addToast('success', t, m)}
             playtimeTrackingEnabled={Boolean(settings.playtime_tracking_enabled)}
+            isTrackingActive={Boolean(activeSessions[selectedGame.id])}
+            onStopTracking={async () => {
+              try {
+                await api.stopTrackingSession(selectedGame.id);
+                setActiveSessions((prev) => {
+                  const next = { ...prev };
+                  delete next[selectedGame.id];
+                  return next;
+                });
+                handleRefreshGames();
+                addToast('info', 'Session Stopped', `Stopped tracking session for "${selectedGame.title}".`);
+              } catch (err: unknown) {
+                const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : String(err);
+                addToast('error', 'Failed to stop session', msg);
+              }
+            }}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
         )}
       </div>
@@ -544,6 +615,23 @@ export const App: React.FC = () => {
           y={contextMenuState.y}
           entries={getGameActions({
             game: contextMenuState.game,
+            isRunning: Boolean(activeSessions[contextMenuState.game.id]),
+            activeSession: Boolean(activeSessions[contextMenuState.game.id]),
+            onStopTracking: async (g) => {
+              try {
+                await api.stopTrackingSession(g.id);
+                setActiveSessions((prev) => {
+                  const next = { ...prev };
+                  delete next[g.id];
+                  return next;
+                });
+                handleRefreshGames();
+                addToast('info', 'Session Stopped', `Stopped tracking session for "${g.title}".`);
+              } catch (err: unknown) {
+                const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : String(err);
+                addToast('error', 'Failed to stop session', msg);
+              }
+            },
             onPlay: handlePlayFromMenu,
             onLaunchSettings: (g) => {
               setSelectedGame(g);

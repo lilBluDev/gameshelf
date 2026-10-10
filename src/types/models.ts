@@ -52,7 +52,27 @@ export interface Game {
   normalized_path?: string | null;
   created_at?: string;
   playtime_seconds?: number;
+  session_count?: number;
+  last_played_at?: string | null;
   artwork?: Partial<Record<ArtworkRole, ArtworkAsset>>;
+}
+
+export interface PlaySession {
+  id: string;
+  game_id: string;
+  started_at: string;
+  ended_at?: string | null;
+  last_seen_at: string;
+  duration_secs: number;
+  tracking_method: string;
+  end_reason?: string | null;
+}
+
+export interface ActiveSessionInfo {
+  session_id: string;
+  game_id: string;
+  started_at: string;
+  tracking_method: string;
 }
 
 export interface GameSession {
