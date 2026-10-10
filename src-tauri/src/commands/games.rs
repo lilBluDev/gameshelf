@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter, State};
 use tracing::info;
 use uuid::Uuid;
@@ -389,15 +389,36 @@ pub async fn reset_game_playtime(state: State<'_, AppState>, game_id: String) ->
     state.db.reset_game_playtime(&game_id)
 }
 
-#[tauri::command]
-pub async fn open_folder(folder_path: String) -> AppResult<bool> {
-    let p = Path::new(&folder_path);
-    let target = if p.is_file() {
-        p.parent().unwrap_or(p)
-    } else {
-        p
-    };
+pub fn derive_game_folder(game: &Game) -> Option<PathBuf> {
+    if let Some(dir) = &game.install_dir {
+        if !dir.trim().is_empty() {
+            return Some(PathBuf::from(dir));
+        }
+    }
+    match &game.launch_action {
+        LaunchAction::Executable { path, .. } => {
+            let p = Path::new(path);
+            p.parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+                .map(PathBuf::from)
+        }
+        LaunchAction::Shortcut { target, .. } => {
+            let p = Path::new(target);
+            p.parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+                .map(PathBuf::from)
+        }
+        LaunchAction::EmulatedGame { rom_path, .. } => {
+            let p = Path::new(rom_path);
+            p.parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+                .map(PathBuf::from)
+        }
+        LaunchAction::Steam { .. } | LaunchAction::Unavailable { .. } => None,
+    }
+}
 
+pub fn launch_explorer_on_dir(target: &Path) -> AppResult<bool> {
     if !target.exists() {
         return Err(AppError::Internal(format!(
             "Directory does not exist: {}",
@@ -405,11 +426,125 @@ pub async fn open_folder(folder_path: String) -> AppResult<bool> {
         )));
     }
 
-    info!(folder = ?target, "Opening game directory in Windows Explorer");
-    std::process::Command::new("explorer.exe")
+    let explorer_path = std::env::var("SystemRoot")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from(r"C:\Windows"))
+        .join("explorer.exe");
+
+    let cmd = if explorer_path.exists() {
+        explorer_path
+    } else {
+        PathBuf::from("explorer.exe")
+    };
+
+    info!(folder = ?target, explorer = ?cmd, "Opening game directory in Windows Explorer");
+    std::process::Command::new(cmd)
         .arg(target)
         .spawn()
         .map_err(|e| AppError::Internal(format!("Failed to open Explorer: {}", e)))?;
 
     Ok(true)
+}
+
+#[tauri::command]
+pub async fn open_folder(state: State<'_, AppState>, game_id: String) -> AppResult<bool> {
+    let game = state
+        .db
+        .get_game_by_id(&game_id)?
+        .ok_or_else(|| AppError::InvalidArgument(format!("Game not found: {}", game_id)))?;
+
+    let folder = derive_game_folder(&game).ok_or_else(|| {
+        AppError::InvalidArgument(format!("No usable folder for game: {}", game_id))
+    })?;
+
+    launch_explorer_on_dir(&folder)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_test_game(install_dir: Option<String>, launch_action: LaunchAction) -> Game {
+        Game {
+            id: "test-game".to_string(),
+            title: "Test Game".to_string(),
+            sort_title: "test game".to_string(),
+            description: None,
+            developer: None,
+            publisher: None,
+            release_year: None,
+            genres: vec![],
+            tags: vec![],
+            source_kind: SourceKind::Standalone,
+            source_id: None,
+            install_dir,
+            launch_action,
+            status: GameStatus::Installed,
+            last_scanned_at: Some("2026-01-01T00:00:00Z".to_string()),
+            last_launched_at: None,
+            is_favorite: false,
+            is_hidden: false,
+            user_tags: vec![],
+            notes: None,
+            match_confidence: None,
+            provider_attribution: None,
+            artwork: None,
+            normalized_path: Some("".to_string()),
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            playtime_seconds: 0,
+        }
+    }
+
+    #[test]
+    fn test_derive_game_folder_from_install_dir() {
+        let game = make_test_game(
+            Some(r"C:\Games\MyGame".to_string()),
+            LaunchAction::Unavailable {
+                reason: "Unavailable".to_string(),
+            },
+        );
+        let folder = derive_game_folder(&game);
+        assert_eq!(folder, Some(PathBuf::from(r"C:\Games\MyGame")));
+    }
+
+    #[test]
+    fn test_derive_game_folder_from_executable_parent() {
+        let game = make_test_game(
+            None,
+            LaunchAction::Executable {
+                path: r"C:\Games\MyGame\bin\game.exe".to_string(),
+                args: vec![],
+                working_dir: None,
+                env: Default::default(),
+            },
+        );
+        let folder = derive_game_folder(&game);
+        assert_eq!(folder, Some(PathBuf::from(r"C:\Games\MyGame\bin")));
+    }
+
+    #[test]
+    fn test_derive_game_folder_from_rom_parent() {
+        let game = make_test_game(
+            None,
+            LaunchAction::EmulatedGame {
+                profile_id: "retroarch".to_string(),
+                rom_path: r"D:\Roms\snes\game.sfc".to_string(),
+                arg_overrides: None,
+            },
+        );
+        let folder = derive_game_folder(&game);
+        assert_eq!(folder, Some(PathBuf::from(r"D:\Roms\snes")));
+    }
+
+    #[test]
+    fn test_derive_game_folder_no_usable_folder() {
+        let game = make_test_game(
+            None,
+            LaunchAction::Unavailable {
+                reason: "Not found".to_string(),
+            },
+        );
+        let folder = derive_game_folder(&game);
+        assert_eq!(folder, None);
+    }
 }

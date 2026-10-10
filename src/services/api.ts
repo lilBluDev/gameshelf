@@ -476,7 +476,7 @@ export const api = {
     }),
   getGameSessions: (gameId: string) => callTauri<GameSession[]>('get_game_sessions', { gameId }),
   resetGamePlaytime: (gameId: string) => callTauri<void>('reset_game_playtime', { gameId }),
-  openFolder: (folderPath: string) => callTauri<boolean>('open_folder', { folderPath }),
+  openFolder: (gameId: string) => callTauri<boolean>('open_folder', { gameId }),
   getSteamStatus: () => callTauri<SteamStatusResponse>('get_steam_status'),
   rescanSteam: () => callTauri<SteamScanResult>('rescan_steam'),
   configureSteamPath: (path?: string) => callTauri<void>('configure_steam_path', { path: path || null }),

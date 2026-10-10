@@ -210,24 +210,8 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
   // Handle Open Folder
   const handleOpenFolder = async () => {
-    let folder = game.install_dir;
-    if (!folder) {
-      if (game.launch_action.type === 'Executable') {
-        folder = game.launch_action.working_dir || game.launch_action.path;
-      } else if (game.launch_action.type === 'Shortcut') {
-        folder = game.launch_action.working_dir || game.launch_action.target;
-      } else if (game.launch_action.type === 'EmulatedGame') {
-        folder = game.launch_action.rom_path;
-      }
-    }
-
-    if (!folder) {
-      onError('Folder Unavailable', 'No install directory or file path is associated with this entry.');
-      return;
-    }
-
     try {
-      await api.openFolder(folder);
+      await api.openFolder(game.id);
       onSuccess('Folder Opened', 'Revealed game directory in Windows Explorer.');
     } catch (err: unknown) {
       const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : String(err);

@@ -74,6 +74,6 @@ pub async fn get_diagnostic_summary(state: State<'_, AppState>) -> AppResult<Str
 
 #[tauri::command]
 pub async fn open_logs(state: State<'_, AppState>) -> AppResult<()> {
-    crate::commands::games::open_folder(state.log_dir.to_string_lossy().to_string()).await?;
+    crate::commands::games::launch_explorer_on_dir(&state.log_dir)?;
     Ok(())
 }
