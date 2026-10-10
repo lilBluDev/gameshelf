@@ -18,8 +18,10 @@
 - [x] Phase 5 — Emulator Profiles and Emulated Games (2026-10-09)
 - [x] Phase 6 — Metadata & artwork pipeline (2026-10-10)
 - [x] Phase 7 — Polish, hardening & packaging (2026-10-10)
-- [x] Phase 8 — Local Playtime Tracking (2026-10-10)
 - [x] Phase 9 — Hardening, Context Menus & Process-Tree Tracking (2026-10-10)
+- [x] Phase 10 Session 1 — Tokens, Primitives, Shell Redesign (D0, D1, D2) (2026-10-10)
+- [ ] Phase 10 Session 2 — Library Grid/List, Cards & Virtualization (D3)
+- [ ] Phase 10 Session 3 — Settings, Detail Panel, Dialogs, Accessibility & Visual QA (D4, D5, D6)
 
 ---
 
@@ -27,6 +29,8 @@
 
 | Feature | Status | Evidence / notes |
 |---|---|---|
+| Visual Tokens & Shared Primitives (Phase 10 D1) | Implemented | Normalized type scale (minimum 12px, body 13px), radius tokens (control 8px, card 10px, dialog 12px), WCAG AA contrast verified (>5:1 for muted text across themes), shared DialogShell, Menu, Button, IconButton, SegmentedControl, StatusLabel, SectionHeading |
+| Redesigned Main Shell & Toolbar (Phase 10 D2) | Implemented | Compact TitleBar with muted version text; 208px Sidebar with quiet 3px accent markers, plain font-mono counts, and aria-current; solid surface TopBar removing backdrop-blur, aligned controls and compact search |
 | Local Playtime Tracking & Session Recording | Implemented | `game_sessions` and `play_sessions` tables (Migrations 6 & 7), exact process-tree tracking via Windows Job Objects for standalone/emulators, approximate session tracking for Steam protocol activation; disabled by default |
 | Most Played Sort & Conditional Playtime Badges | Implemented | `TopBar.tsx` and `GameCard.tsx` conditionally render "Most Played" sort and playtime badges only when `playtime_tracking_enabled` is active; auto-resets sort if toggled off |
 | Per-Game Playtime Reset | Implemented | `reset_game_playtime` Tauri command and confirmation dialog in `GameDetailPanel.tsx` safely zeroes playtime and clears session history |
@@ -130,3 +134,20 @@
 12. **Asset Protocol Zero-IPC Image Serving**: Cached artwork images are served directly through Tauri's `assetProtocol` (`convertFileSrc`) with paths locked down to `$APPDATA` and `$CACHE` directories. Large image byte payloads are never transmitted across the IPC bridge.
 13. **Strict Field Locking**: The `game_overrides.locked_fields` array preserves user-selected artwork roles and metadata overrides. When automatic metadata or artwork refreshes occur, locked fields are unconditionally skipped.
 14. **Process-Tree Playtime Tracking via Windows Job Objects**: Standalone and emulated titles are tracked using Windows Job Objects (`JOBOBJECT_BASIC_PROCESS_ID_LIST`) to account for launcher/bootstrap processes spawning grandchild game processes. Polling every 5 seconds updates `last_seen_at` without disk thrashing, committing the final duration atomically upon process tree termination. Unclean shutdowns recover dangling active sessions on next app launch. Tracking is strictly local, opt-in/configurable, and zero telemetry is collected.
+15. **Quiet Desktop Shelf Visual Language**: Replaces saturated accent blocks with quiet surface shifts and 3px vertical accent markers. Removes translucent blur filters from chrome headers in favor of solid background surfaces with crisp hairline borders. Eliminates sub-12px micro-text and non-standard radius classes in favor of semantic typography and token radii.
+
+---
+
+## Phase 10 Visual Redesign Metrics
+
+| Metric Command | Baseline (D0) | Session 1 (D2) | Target (D6) |
+|---|---|---|---|
+| `backdrop-blur` instances | 22 | 21 | 0 |
+| `text-[(9\|10\|11)px]` arbitrary sizes | 150 | 0 | 0 |
+| `border border-border` instances | 153 | 157 | <= 76 |
+| `rounded-(sm\|md\|lg\|xl\|2xl\|3xl)` raw radii | 44 | 0 | 0 |
+| Hardcoded palette/accent literals | 13 | 13 | 0 (outside settings swatches) |
+
+Contrast Ratios (`--color-muted`):
+- Dark: vs bg 6.12:1, vs surface 5.70:1, vs surface-2 5.29:1 (all pass >= 4.5:1)
+- Light: vs bg 5.60:1, vs surface 6.11:1, vs surface-2 5.12:1 (all pass >= 4.5:1)
