@@ -68,21 +68,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const sourceNavItems: NavItem[] = [
     {
-      id: 'steam' as NavFilter,
+      id: 'steam',
       label: 'Steam Games',
       icon: Flame,
       enabled: true,
       count: counts?.steam,
     },
     {
-      id: 'pc' as NavFilter,
+      id: 'pc',
       label: 'PC Games',
       icon: Monitor,
       enabled: true,
       count: counts?.pc,
     },
     {
-      id: 'emulated' as NavFilter,
+      id: 'emulated',
       label: 'Emulated',
       icon: Cpu,
       enabled: true,
@@ -91,14 +91,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-56 bg-surface border-r border-border flex flex-col justify-between select-none flex-shrink-0">
-      <div className="p-3 space-y-6">
-        {/* Main Section */}
+    <aside className="w-[208px] min-w-[180px] max-w-[208px] bg-surface border-r border-border flex flex-col justify-between select-none flex-shrink-0">
+      <div className="p-2.5 space-y-5">
         <div>
-          <div className="px-2.5 mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
+          <div className="px-2.5 mb-1.5 text-xs font-medium text-muted">
             Browse
           </div>
-          <nav className="space-y-1">
+          <nav className="space-y-0.5">
             {mainNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeFilter === item.id;
@@ -107,13 +106,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div
                     key={item.id}
                     title={item.reason}
-                    className="flex items-center justify-between px-2.5 py-1.5 rounded-control text-muted opacity-50 cursor-not-allowed group text-xs"
+                    className="flex items-center justify-between px-2.5 h-9 rounded-control text-muted/50 cursor-not-allowed text-xs"
                   >
                     <div className="flex items-center gap-2.5">
                       <Icon className="w-4 h-4" />
                       <span>{item.label}</span>
                     </div>
-                    <span className="text-xs bg-surface-2 px-1.5 py-0.5 rounded text-muted border border-border">
+                    <span className="text-xs text-muted/60">
                       Later
                     </span>
                   </div>
@@ -122,11 +121,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               return (
                 <button
                   key={item.id}
-                  onClick={() => onSelectFilter(item.id as NavFilter)}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-control text-xs font-medium transition-colors ${
+                  onClick={() => onSelectFilter(item.id)}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`w-full flex items-center justify-between px-2.5 h-9 rounded-control text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                     isActive
-                      ? 'bg-accent text-white shadow-sm'
-                      : 'text-text hover:bg-surface-2 hover:text-white'
+                      ? 'bg-surface-2 text-text font-medium relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-accent'
+                      : 'text-muted hover:text-text hover:bg-surface-2/60'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -134,13 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span>{item.label}</span>
                   </div>
                   {item.count !== undefined && item.count > 0 && (
-                    <span
-                      className={`text-xs px-1.5 py-0.5 rounded font-mono ${
-                        isActive
-                          ? 'bg-white/20 text-white'
-                          : 'bg-surface-2 text-muted border border-border'
-                      }`}
-                    >
+                    <span className="text-xs font-mono text-muted tabular-nums">
                       {item.count}
                     </span>
                   )}
@@ -150,23 +144,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* Platforms Section */}
         <div>
-          <div className="px-2.5 mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
+          <div className="px-2.5 mb-1.5 text-xs font-medium text-muted">
             Platforms
           </div>
-          <nav className="space-y-1">
+          <nav className="space-y-0.5">
             {sourceNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeFilter === item.id;
               return (
                 <button
                   key={item.id}
-                  onClick={() => onSelectFilter(item.id as NavFilter)}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-control text-xs font-medium transition-colors ${
+                  onClick={() => onSelectFilter(item.id)}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`w-full flex items-center justify-between px-2.5 h-9 rounded-control text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                     isActive
-                      ? 'bg-accent text-white shadow-sm'
-                      : 'text-text hover:bg-surface-2 hover:text-white'
+                      ? 'bg-surface-2 text-text font-medium relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-accent'
+                      : 'text-muted hover:text-text hover:bg-surface-2/60'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -174,13 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span>{item.label}</span>
                   </div>
                   {item.count !== undefined && item.count > 0 && (
-                    <span
-                      className={`text-xs px-1.5 py-0.5 rounded font-mono ${
-                        isActive
-                          ? 'bg-white/20 text-white'
-                          : 'bg-surface-2 text-muted border border-border'
-                      }`}
-                    >
+                    <span className="text-xs font-mono text-muted tabular-nums">
                       {item.count}
                     </span>
                   )}
@@ -191,19 +179,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Footer / Settings Section */}
-      <div className="p-3 border-t border-border space-y-1">
+      <div className="p-2.5 border-t border-border space-y-1">
         <button
           onClick={onOpenSettings}
-          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-control text-xs font-medium text-text hover:bg-surface-2 hover:text-white transition-colors"
+          className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-control text-xs font-medium text-muted hover:text-text hover:bg-surface-2/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
-          <SettingsIcon className="w-4 h-4 text-muted" />
+          <SettingsIcon className="w-4 h-4" />
           <span>Settings</span>
         </button>
 
         <div className="px-2.5 py-1 text-xs text-muted flex items-center justify-between">
           <span>Local Library</span>
-          <span className="inline-block w-2 h-2 rounded-full bg-success" title="Local-first database connected" />
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-success" title="Local-first database connected" />
         </div>
       </div>
     </aside>

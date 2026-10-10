@@ -50,44 +50,44 @@ export const TitleBar: React.FC = () => {
   return (
     <header
       data-tauri-drag-region
-      className="h-10 w-full bg-surface border-b border-border flex items-center justify-between select-none px-3 z-50 flex-shrink-0"
+      className="h-9 w-full bg-surface border-b border-border flex items-center justify-between select-none px-3 z-50 flex-shrink-0"
     >
-      {/* Brand / Title (Drag Region) */}
-      <div data-tauri-drag-region className="flex items-center gap-2.5 h-full pointer-events-none">
-        <img src={APP_CONFIG.logoPath} alt="GameShelf Logo" className="w-5 h-5 object-contain" />
-        <span className="text-xs font-semibold tracking-wider text-text uppercase">
+      <div data-tauri-drag-region className="flex items-center gap-2 h-full pointer-events-none">
+        <img src={APP_CONFIG.logoPath} alt="GameShelf Logo" className="w-4 h-4 object-contain" />
+        <span className="text-body font-semibold text-text tracking-normal">
           {APP_CONFIG.name}
         </span>
-        <span className="text-xs text-muted font-mono px-1.5 py-0.5 rounded bg-surface-2 border border-border">
+        <span className="text-xs text-muted/70 font-mono ml-0.5">
           v{APP_CONFIG.version}
         </span>
       </div>
 
-      {/* Center Drag Area */}
       <div data-tauri-drag-region className="flex-1 h-full cursor-default" />
 
-      {/* Window Controls (Explicitly NOT drag region so clicks work) */}
       <div className="flex items-center h-full -mr-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <button
           onClick={handleMinimize}
           title="Minimize"
-          className="h-10 w-11 inline-flex items-center justify-center text-muted hover:text-text hover:bg-surface-2 transition-colors focus:outline-none"
+          aria-label="Minimize window"
+          className="h-9 w-10 inline-flex items-center justify-center text-muted hover:text-text hover:bg-surface-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
         >
           <Minus className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={handleMaximize}
           title={isMaximized ? "Restore" : "Maximize"}
-          className="h-10 w-11 inline-flex items-center justify-center text-muted hover:text-text hover:bg-surface-2 transition-colors focus:outline-none"
+          aria-label={isMaximized ? "Restore window" : "Maximize window"}
+          className="h-9 w-10 inline-flex items-center justify-center text-muted hover:text-text hover:bg-surface-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
         >
           {isMaximized ? <Copy className="w-3.5 h-3.5 rotate-180" /> : <Square className="w-3.5 h-3.5" />}
         </button>
         <button
           onClick={handleClose}
           title="Close"
-          className="h-10 w-11 inline-flex items-center justify-center text-muted hover:text-white hover:bg-danger transition-colors focus:outline-none"
+          aria-label="Close window"
+          className="h-9 w-10 inline-flex items-center justify-center text-muted hover:text-white hover:bg-danger transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-danger"
         >
-          <X className="w-4 h-4" />
+          <X className="w-3.5 h-3.5" />
         </button>
       </div>
     </header>
