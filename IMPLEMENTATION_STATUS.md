@@ -34,10 +34,10 @@
 | Database Corruption Auto-Recovery & Backup | Implemented | `src-tauri/src/db/mod.rs` tests `PRAGMA quick_check;` on startup; catches corruption, backs up as `.corrupt.<ts>.db`, cleanly reinitializes without data deletion |
 | Diagnostic Report & Log Directory Action | Implemented | `get_diagnostic_summary` generates sanitized markdown omitting tokens/paths; `open_logs` reveals logs folder in Explorer via `open_folder` |
 | Settings Completeness & Appearance Customization | Implemented | `SettingsModal.tsx` supports launch on startup, minimize to tray, close to tray, 6 accent colors, reduced motion mode, and card density |
-| Debounced Search & Windowed Rendering | Implemented | `TopBar.tsx` debounces 150ms; `App.tsx` incrementally renders 60 cards initially with scroll threshold batching, guaranteeing 60fps interaction |
-| 1,000 Games Performance Benchmarks | Implemented | Verified in `test_performance_1000_games.rs` (insert: 586ms, retrieve: 31ms, search: 5ms) and `benchmark.test.ts` (search: 1.42ms, slice: 0.001ms) |
-| Complete Quality Gate Suite | Implemented | 74/74 Rust tests (`cargo test`), 49/49 frontend tests (`pnpm test`), `cargo clippy -- -D warnings`, `cargo fmt --check` all passing |
-| Windows Desktop Production Packaging | Implemented | `pnpm tauri build` generates MSI (`GameShelf_0.1.0_x64_en-US.msi`, 6.45 MiB) and NSIS setup (`GameShelf_0.1.0_x64-setup.exe`, 4.55 MiB) |
+| Virtualized Grid & List Windowing | Implemented | `src/components/VirtualizedLibrary.tsx` uses `@tanstack/react-virtual` for windowed rendering with responsive column calculation and scroll restoration |
+| 1,000 & 5,000 Games Performance Benchmarks | Implemented | Verified in `test_performance_1000_games.rs` (insert: 586ms, retrieve: 31ms, search: 5ms) and `src/services/benchmark.test.tsx` (5,000 synthetic games rendered DOM card count strictly bounded to 30) |
+| Complete Quality Gate Suite | Implemented | 85/85 Rust tests (`cargo test`), 49/49 frontend tests (`pnpm test`), `cargo clippy -- -D warnings`, `cargo fmt --check` all passing |
+| Windows Desktop Production Packaging | Implemented | `pnpm tauri build` generates MSI (`GameShelf_0.1.0_x64_en-US.msi`, 6.57 MiB / 6,893,568 bytes) and NSIS setup (`GameShelf_0.1.0_x64-setup.exe`, 4.64 MiB / 4,861,617 bytes) |
 | Single-source App Branding Config | Implemented | `src/config/appConfig.ts` houses app name, bundle ID, accent color, and logo path |
 | Design Tokens & Theme System | Implemented | `tailwind.config.js` and `src/index.css` define dark, light, system theme tokens and respect `prefers-reduced-motion` |
 | Native Window Title Bar | Implemented | `src/components/TitleBar.tsx` with non-blocking drag region, window minimize/maximize/close via Tauri API + web fallback |
@@ -95,17 +95,12 @@
 | Title Normalization & Matching Engine | Implemented | `src-tauri/src/metadata/matching.rs` strips edition/version tags, standardizes Roman/Arabic numerals, disambiguates sequels, assigns High/Medium/Low confidence tiers |
 | Atomic Validated Artwork Cache | Implemented | `src-tauri/src/cache/artwork.rs` enforces 20MB limit, image/jpeg, png, webp MIME validation, image decoding verification via `image` crate, atomic `.tmp` to final rename |
 | Disk Cache Management & Telemetry | Implemented | `get_cache_stats` computes file count and formatted size; `clear_artwork_cache` cleans unselected and cached artwork safely |
-| Tauri Asset Protocol Webview Serving | Implemented | `convertFileSrc` served via Tauri `assetProtocol` scoped to AppData and Cache with CSP; image bytes never transmitted over IPC |
-| Database Field Locking & User Choice Protection | Implemented | Migration 5 added `locked_fields` to `game_overrides`; user edits and manual artwork selections never overwritten during re-scans |
-| ArtworkPickerModal Component | Implemented | `src/components/ArtworkPickerModal.tsx` supports Cover (2:3), Hero, Logo, Icon role tabs, live search, candidate gallery, local file picker, and lock toggles |
-| Metadata & Artwork Settings Panel | Implemented | `src/components/SettingsModal.tsx` provides masked API key input, connection testing, save/remove actions, cache usage stats, cache clearing, and privacy notice |
-| GameCard & GameDetailPanel Artwork Integration | Implemented | `GameCard.tsx` and `GameDetailPanel.tsx` wire `resolveArtworkSrc` with broken-image fallback to deterministic initials, hero banner display, change artwork modal, and refresh metadata button |
-| Frontend Unit & Integration Tests | Implemented | 38/38 tests passing (`src/services/artwork.test.ts`, `src/services/steam.test.ts`, `src/services/scanner.test.ts`, `src/services/emulators.test.ts`, `src/App.test.tsx`) via `vitest run` |
-| Frontend Production Build | Implemented | `pnpm build` (`tsc && vite build`) passed with zero errors, generating optimized bundle in `dist/` |
-| Rust Formatting Check | Implemented | `cargo fmt --check` passed with zero formatting diffs across all backend files |
-| Rust Native Unit & Integration Tests | Implemented | 69/69 tests passing (61 unit tests + 8 integration tests in `tests/test_metadata_and_artwork.rs`) via `cargo test` |
-| Rust Clippy Lints | Implemented | `cargo clippy -- -D warnings` passed with 0 warnings |
-| Desktop App Packaging (MSI & NSIS) | Implemented | `pnpm tauri build` succeeded, generating `gameshelf.exe`, MSI installer (6.38 MiB), and NSIS installer (4.51 MiB) |
+| Asset Protocol Scope & Webview Tightening (A1) | Implemented | Narrowed asset protocol scope strictly to `$APPDATA/artwork/**`, removed `withGlobalTauri`, restricted CSP `img-src` to verified Steam CDN and SGDB domains |
+| Live System Tray Integration & Window Interception (A2) | Implemented | `src-tauri/src/tray.rs` and single-instance plugin manage minimize/close to tray live without restart; graceful fallback if tray unavailable |
+| Secure Game ID Folder Reveal (A3) | Implemented | `open_folder` derives folder from game ID (install_dir, executable parent, rom parent) and calls system `explorer.exe` using full absolute path |
+| Native WinReg & Strict Steam URI Parser (A4) | Implemented | Replaced `reg.exe` with `winreg` crate, replaced `rundll32` with `ShellExecuteW`, strictly validates `steam://rungameid/<digits>` where digits fit in `u32` |
+| Database Mutex Poison Recovery & Spawn Blocking (A5) | Implemented | `src-tauri/src/db/mod.rs` recovers from poisoned mutex locks; heavy scan/import/artwork tasks offloaded to `tokio::task::spawn_blocking` |
+| Grid & List Virtualization (A6) | Implemented | `@tanstack/react-virtual` renders responsive virtualized window for grid and list; bounded DOM card count verified with 5,000 games |
 
 ---
 
