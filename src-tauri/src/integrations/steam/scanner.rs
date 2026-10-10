@@ -44,33 +44,10 @@ pub fn detect_steam_installation(custom_override: Option<&str>) -> Option<PathBu
         }
     }
 
-    // 2. Query Windows Registry via reg.exe
     #[cfg(target_os = "windows")]
     {
-        // Try HKCU\Software\Valve\Steam -> SteamPath
-        if let Some(path) = query_registry_key(r"HKCU\Software\Valve\Steam", "SteamPath") {
-            let p = PathBuf::from(path);
-            if p.exists() && p.is_dir() {
-                return Some(p);
-            }
-        }
-
-        // Try HKLM\SOFTWARE\WOW6432Node\Valve\Steam -> InstallPath
-        if let Some(path) =
-            query_registry_key(r"HKLM\SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath")
-        {
-            let p = PathBuf::from(path);
-            if p.exists() && p.is_dir() {
-                return Some(p);
-            }
-        }
-
-        // Try HKLM\SOFTWARE\Valve\Steam -> InstallPath
-        if let Some(path) = query_registry_key(r"HKLM\SOFTWARE\Valve\Steam", "InstallPath") {
-            let p = PathBuf::from(path);
-            if p.exists() && p.is_dir() {
-                return Some(p);
-            }
+        if let Some(path) = query_registry_steam_path() {
+            return Some(path);
         }
     }
 
@@ -93,26 +70,35 @@ pub fn detect_steam_installation(custom_override: Option<&str>) -> Option<PathBu
 }
 
 #[cfg(target_os = "windows")]
-fn query_registry_key(key_path: &str, value_name: &str) -> Option<String> {
-    use std::process::Command;
+fn query_registry_steam_path() -> Option<PathBuf> {
+    use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+    use winreg::RegKey;
 
-    let output = Command::new("reg.exe")
-        .args(["query", key_path, "/v", value_name])
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    if let Ok(key) = hkcu.open_subkey(r"Software\Valve\Steam") {
+        if let Ok(path) = key.get_value::<String, _>("SteamPath") {
+            let p = PathBuf::from(path);
+            if p.exists() && p.is_dir() {
+                return Some(p);
+            }
+        }
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    // Parse line containing value_name and REG_SZ
-    for line in stdout.lines() {
-        if line.contains(value_name) && line.contains("REG_SZ") {
-            let parts: Vec<&str> = line.split("REG_SZ").collect();
-            if parts.len() >= 2 {
-                let path = parts[1].trim();
-                return Some(path.to_string());
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    if let Ok(key) = hklm.open_subkey(r"SOFTWARE\WOW6432Node\Valve\Steam") {
+        if let Ok(path) = key.get_value::<String, _>("InstallPath") {
+            let p = PathBuf::from(path);
+            if p.exists() && p.is_dir() {
+                return Some(p);
+            }
+        }
+    }
+
+    if let Ok(key) = hklm.open_subkey(r"SOFTWARE\Valve\Steam") {
+        if let Ok(path) = key.get_value::<String, _>("InstallPath") {
+            let p = PathBuf::from(path);
+            if p.exists() && p.is_dir() {
+                return Some(p);
             }
         }
     }

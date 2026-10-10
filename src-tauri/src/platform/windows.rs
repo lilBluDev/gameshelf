@@ -358,28 +358,64 @@ pub fn build_steam_run_uri(app_id: u32) -> Result<String, String> {
     Ok(format!("steam://rungameid/{}", app_id))
 }
 
-/// Activate an allow-listed protocol URI on Windows (steam://rungameid/ only)
-pub fn launch_uri(uri: &str) -> crate::error::AppResult<()> {
-    if !uri.starts_with("steam://rungameid/") {
-        return Err(crate::error::AppError::Internal(format!(
+pub fn parse_steam_run_uri(uri: &str) -> Result<u32, String> {
+    let prefix = "steam://rungameid/";
+    let suffix = uri.strip_prefix(prefix).ok_or_else(|| {
+        format!(
             "Disallowed protocol URI '{}'. Only 'steam://rungameid/' is permitted.",
             uri
-        )));
+        )
+    })?;
+    if suffix.is_empty() {
+        return Err("Steam App ID is empty".to_string());
     }
+    if !suffix.chars().all(|c| c.is_ascii_digit()) {
+        return Err("Steam App ID must contain only ASCII digits".to_string());
+    }
+    let app_id: u64 = suffix
+        .parse()
+        .map_err(|_| "Steam App ID is out of range".to_string())?;
+    if app_id == 0 {
+        return Err("Steam App ID must be positive and non-zero".to_string());
+    }
+    if app_id > u32::MAX as u64 {
+        return Err("Steam App ID exceeds maximum u32 value".to_string());
+    }
+    Ok(app_id as u32)
+}
+
+pub fn launch_uri(uri: &str) -> crate::error::AppResult<()> {
+    parse_steam_run_uri(uri).map_err(crate::error::AppError::InvalidArgument)?;
 
     #[cfg(target_os = "windows")]
     {
-        let status = std::process::Command::new("rundll32.exe")
-            .args(["url.dll,FileProtocolHandler", uri])
-            .status()
-            .map_err(|e| {
-                crate::error::AppError::Internal(format!("Failed to activate URI: {}", e))
-            })?;
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
 
-        if !status.success() {
+        let wide_uri: Vec<u16> = OsStr::new(uri)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let wide_open: Vec<u16> = OsStr::new("open")
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        let ret = unsafe {
+            windows_sys::Win32::UI::Shell::ShellExecuteW(
+                0,
+                wide_open.as_ptr(),
+                wide_uri.as_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                1,
+            )
+        };
+
+        if (ret as isize) <= 32 {
             return Err(crate::error::AppError::Internal(format!(
-                "URI activation exited with status {:?}",
-                status
+                "ShellExecuteW failed for URI '{}' with code {}",
+                uri, ret as isize
             )));
         }
     }
@@ -394,22 +430,17 @@ pub fn launch_uri(uri: &str) -> crate::error::AppResult<()> {
     Ok(())
 }
 
-/// Check if launch on Windows startup is enabled in HKCU Run registry
 pub fn is_autostart_enabled() -> bool {
     #[cfg(target_os = "windows")]
     {
-        let output = std::process::Command::new("reg")
-            .args([
-                "query",
-                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
-                "/v",
-                "GameShelf",
-            ])
-            .output();
+        use winreg::enums::HKEY_CURRENT_USER;
+        use winreg::RegKey;
 
-        match output {
-            Ok(out) => out.status.success(),
-            Err(_) => false,
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        if let Ok(key) = hkcu.open_subkey(r"Software\Microsoft\Windows\CurrentVersion\Run") {
+            key.get_value::<String, _>("GameShelf").is_ok()
+        } else {
+            false
         }
     }
     #[cfg(not(target_os = "windows"))]
@@ -418,41 +449,34 @@ pub fn is_autostart_enabled() -> bool {
     }
 }
 
-/// Set or clear launch on Windows startup in HKCU Run registry
 pub fn set_autostart_enabled(enabled: bool) -> crate::error::AppResult<()> {
     #[cfg(target_os = "windows")]
     {
+        use winreg::enums::{HKEY_CURRENT_USER, KEY_SET_VALUE};
+        use winreg::RegKey;
+
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let key = hkcu
+            .open_subkey_with_flags(
+                r"Software\Microsoft\Windows\CurrentVersion\Run",
+                KEY_SET_VALUE,
+            )
+            .map_err(|e| {
+                crate::error::AppError::Internal(format!("Failed to open Run registry key: {}", e))
+            })?;
+
         if enabled {
             let current_exe = std::env::current_exe()?;
             let exe_str = current_exe.to_string_lossy().to_string();
-            let status = std::process::Command::new("reg")
-                .args([
-                    "add",
-                    r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
-                    "/v",
-                    "GameShelf",
-                    "/t",
-                    "REG_SZ",
-                    "/d",
-                    &format!("\"{}\"", exe_str),
-                    "/f",
-                ])
-                .status()?;
-            if !status.success() {
-                return Err(crate::error::AppError::Internal(
-                    "Failed to register GameShelf autostart in Windows registry".to_string(),
-                ));
-            }
+            key.set_value("GameShelf", &format!("\"{}\"", exe_str))
+                .map_err(|e| {
+                    crate::error::AppError::Internal(format!(
+                        "Failed to set autostart in registry: {}",
+                        e
+                    ))
+                })?;
         } else {
-            let _ = std::process::Command::new("reg")
-                .args([
-                    "delete",
-                    r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
-                    "/v",
-                    "GameShelf",
-                    "/f",
-                ])
-                .status();
+            let _ = key.delete_value("GameShelf");
         }
     }
     Ok(())
@@ -516,5 +540,71 @@ mod tests {
 
         let res2 = launch_uri("cmd://echo evil");
         assert!(res2.is_err());
+    }
+
+    #[test]
+    fn test_parse_steam_run_uri_table() {
+        let valid_cases = [
+            ("steam://rungameid/220", 220u32),
+            ("steam://rungameid/1", 1u32),
+            ("steam://rungameid/105600", 105600u32),
+            ("steam://rungameid/4294967295", 4294967295u32),
+        ];
+
+        for (uri, expected) in valid_cases {
+            assert_eq!(
+                parse_steam_run_uri(uri),
+                Ok(expected),
+                "Failed for valid URI: {}",
+                uri
+            );
+        }
+
+        let invalid_cases = [
+            "",
+            "steam://rungameid/",
+            "steam://rungameid/0",
+            "steam://rungameid/-1",
+            "steam://rungameid/-220",
+            "steam://rungameid/abc",
+            "steam://rungameid/12 34",
+            "steam://rungameid/220 ",
+            "steam://rungameid/ 220",
+            "steam://rungameid/220/extra",
+            "steam://rungameid/220/",
+            "steam://rungameid/../220",
+            "https://steamcommunity.com",
+            "http://rungameid/220",
+            "steam://otherhost/220",
+            "steam://rungameid/١٢٣",
+            "steam://rungameid/4294967296",
+            "steam://rungameid/999999999999999999999999999999999999",
+        ];
+
+        for uri in invalid_cases {
+            assert!(
+                parse_steam_run_uri(uri).is_err(),
+                "Expected error for invalid URI: {}",
+                uri
+            );
+            assert!(
+                launch_uri(uri).is_err(),
+                "Expected launch_uri error for invalid URI: {}",
+                uri
+            );
+        }
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn test_autostart_registry_toggle() {
+        let original = is_autostart_enabled();
+        let set_res = set_autostart_enabled(true);
+        assert!(set_res.is_ok());
+        assert!(is_autostart_enabled());
+        let clear_res = set_autostart_enabled(false);
+        assert!(clear_res.is_ok());
+        assert!(!is_autostart_enabled());
+        let _ = set_autostart_enabled(original);
     }
 }
