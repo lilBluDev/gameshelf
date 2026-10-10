@@ -95,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-3 space-y-6">
         {/* Main Section */}
         <div>
-          <div className="px-2.5 mb-2 text-[11px] font-semibold tracking-wider text-muted uppercase">
+          <div className="px-2.5 mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
             Browse
           </div>
           <nav className="space-y-1">
@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <Icon className="w-4 h-4" />
                       <span>{item.label}</span>
                     </div>
-                    <span className="text-[10px] bg-surface-2 px-1.5 py-0.5 rounded text-muted border border-border">
+                    <span className="text-xs bg-surface-2 px-1.5 py-0.5 rounded text-muted border border-border">
                       Later
                     </span>
                   </div>
@@ -135,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                   {item.count !== undefined && item.count > 0 && (
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                      className={`text-xs px-1.5 py-0.5 rounded font-mono ${
                         isActive
                           ? 'bg-white/20 text-white'
                           : 'bg-surface-2 text-muted border border-border'
@@ -152,7 +152,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Platforms Section */}
         <div>
-          <div className="px-2.5 mb-2 text-[11px] font-semibold tracking-wider text-muted uppercase">
+          <div className="px-2.5 mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
             Platforms
           </div>
           <nav className="space-y-1">
@@ -175,7 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                   {item.count !== undefined && item.count > 0 && (
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                      className={`text-xs px-1.5 py-0.5 rounded font-mono ${
                         isActive
                           ? 'bg-white/20 text-white'
                           : 'bg-surface-2 text-muted border border-border'
@@ -201,7 +201,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <span>Settings</span>
         </button>
 
-        <div className="px-2.5 py-1 text-[10px] text-muted flex items-center justify-between">
+        <div className="px-2.5 py-1 text-xs text-muted flex items-center justify-between">
           <span>Local Library</span>
           <span className="inline-block w-2 h-2 rounded-full bg-success" title="Local-first database connected" />
         </div>

@@ -111,7 +111,7 @@ export const GameCard: React.FC<GameCardProps> = ({
               <span className="text-xs font-semibold text-text truncate">{game.title}</span>
               {game.is_favorite && <Heart className="w-3 h-3 fill-danger text-danger flex-shrink-0" />}
             </div>
-            <div className="text-[11px] text-muted truncate">
+            <div className="text-xs text-muted truncate">
               {game.developer || 'Unknown Developer'} {game.release_year ? `• ${game.release_year}` : ''}
             </div>
           </div>
@@ -119,19 +119,19 @@ export const GameCard: React.FC<GameCardProps> = ({
 
         <div className="flex items-center gap-3 flex-shrink-0">
           {playtimeTrackingEnabled && (game.playtime_seconds ?? 0) > 0 && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-surface-2 border border-border text-[11px] text-muted font-mono" title={`Playtime: ${formatPlaytime(game.playtime_seconds!)}`}>
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-surface-2 border border-border text-xs text-muted font-mono" title={`Playtime: ${formatPlaytime(game.playtime_seconds!)}`}>
               <Clock className="w-3 h-3 text-muted" />
               <span>{formatPlaytime(game.playtime_seconds!)}</span>
             </div>
           )}
 
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-2 border border-border text-[11px] text-muted">
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-2 border border-border text-xs text-muted">
             {getSourceIcon()}
             <span>{game.source_kind}</span>
           </div>
 
           <span
-            className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
               game.status === 'Installed'
                 ? 'bg-success/15 text-success border border-success/30'
                 : 'bg-warning/15 text-warning border border-warning/30'
@@ -178,7 +178,7 @@ export const GameCard: React.FC<GameCardProps> = ({
             <span className="text-3xl font-extrabold tracking-wider text-white/90 drop-shadow-md">
               {initials}
             </span>
-            <span className="text-[11px] font-medium text-white/70 line-clamp-2 mt-2 px-2 drop-shadow">
+            <span className="text-xs font-medium text-white/70 line-clamp-2 mt-2 px-2 drop-shadow">
               {game.title}
             </span>
           </div>
@@ -186,7 +186,7 @@ export const GameCard: React.FC<GameCardProps> = ({
 
         {/* Top Badges Overlay */}
         <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
-          <div className="bg-bg/80 backdrop-blur px-1.5 py-0.5 rounded text-[10px] text-text border border-border/80 flex items-center gap-1">
+          <div className="bg-bg/80 backdrop-blur px-1.5 py-0.5 rounded text-xs text-text border border-border/80 flex items-center gap-1">
             {getSourceIcon()}
             <span>{game.source_kind}</span>
           </div>
@@ -206,10 +206,10 @@ export const GameCard: React.FC<GameCardProps> = ({
         <h4 className="text-xs font-semibold text-text truncate group-hover:text-accent transition-colors" title={game.title}>
           {game.title}
         </h4>
-        <div className="flex items-center justify-between text-[11px] text-muted mt-1">
+        <div className="flex items-center justify-between text-xs text-muted mt-1">
           <span className="truncate max-w-[110px]">{game.developer || '—'}</span>
           {playtimeTrackingEnabled && (game.playtime_seconds ?? 0) > 0 ? (
-            <span className="font-mono text-text/80 text-[10px] bg-surface-2 px-1.5 py-0.5 rounded border border-border" title={`Playtime: ${formatPlaytime(game.playtime_seconds!)}`}>
+            <span className="font-mono text-text/80 text-xs bg-surface-2 px-1.5 py-0.5 rounded border border-border" title={`Playtime: ${formatPlaytime(game.playtime_seconds!)}`}>
               {formatPlaytime(game.playtime_seconds!)}
             </span>
           ) : (

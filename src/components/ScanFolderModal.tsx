@@ -190,11 +190,11 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
       aria-modal="true"
       aria-labelledby="scan-modal-title"
     >
-      <div className="relative flex flex-col w-full max-w-3xl max-h-[90vh] bg-surface border border-border rounded-xl shadow-2xl overflow-hidden animate-scale-in">
+      <div className="relative flex flex-col w-full max-w-3xl max-h-[90vh] bg-surface border border-border rounded-dialog shadow-2xl overflow-hidden animate-scale-in">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-2/60">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-accent/10 border border-accent/20 text-accent">
+            <div className="flex items-center justify-center w-9 h-9 rounded-control bg-accent/10 border border-accent/20 text-accent">
               <FolderSearch className="w-5 h-5" />
             </div>
             <div>
@@ -211,7 +211,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-muted hover:text-text hover:bg-surface-2 transition-colors"
+            className="p-2 rounded-control text-muted hover:text-text hover:bg-surface-2 transition-colors"
             title="Close modal"
           >
             <X className="w-5 h-5" />
@@ -221,7 +221,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {error && (
-            <div className="flex items-start gap-3 p-3 text-sm text-danger bg-danger/10 border border-danger/20 rounded-lg">
+            <div className="flex items-start gap-3 p-3 text-sm text-danger bg-danger/10 border border-danger/20 rounded-control">
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <div className="flex-1">{error}</div>
             </div>
@@ -240,7 +240,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
                     value={folderPath}
                     onChange={(e) => setFolderPath(e.target.value)}
                     placeholder="e.g. D:\Games or C:\Games\PC"
-                    className="flex-1 px-3 py-2 bg-surface-2 border border-border rounded-lg text-sm text-text placeholder-muted focus:outline-none focus:border-accent"
+                    className="flex-1 px-3 py-2 bg-surface-2 border border-border rounded-control text-sm text-text placeholder-muted focus:outline-none focus:border-accent"
                     autoFocus
                   />
                 </div>
@@ -250,7 +250,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
               </div>
 
               {/* Bounded Recursion Depth */}
-              <div className="p-4 bg-surface-2/40 border border-border/80 rounded-lg space-y-3">
+              <div className="p-4 bg-surface-2/40 border border-border/80 rounded-control space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium text-text">Folder Recursion Depth</div>
@@ -272,7 +272,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
                   onChange={(e) => setMaxDepth(parseInt(e.target.value, 10))}
                   className="w-full accent-accent cursor-pointer"
                 />
-                <div className="flex justify-between text-[11px] text-muted">
+                <div className="flex justify-between text-xs text-muted">
                   <span>1 (Shallow)</span>
                   <span>4 (Standard default)</span>
                   <span>6 (Deep subfolders)</span>
@@ -280,7 +280,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
               </div>
 
               {/* Safe Scan Guard Notice */}
-              <div className="flex items-start gap-3 p-3.5 bg-surface-2/20 border border-border rounded-lg text-xs text-muted">
+              <div className="flex items-start gap-3 p-3.5 bg-surface-2/20 border border-border rounded-control text-xs text-muted">
                 <HelpCircle className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" />
                 <p>
                   <strong>Safety guarantee:</strong> GameShelf never scans entire disk drives (e.g.{' '}
@@ -308,26 +308,26 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
 
               {/* Progress metrics grid */}
               <div className="grid grid-cols-4 gap-3 max-w-xl mx-auto text-left">
-                <div className="p-3 bg-surface-2 border border-border rounded-lg">
-                  <div className="text-[11px] text-muted uppercase">Folders</div>
+                <div className="p-3 bg-surface-2 border border-border rounded-control">
+                  <div className="text-xs text-muted uppercase">Folders</div>
                   <div className="text-lg font-bold text-text">
                     {progress?.folders_scanned || 0}
                   </div>
                 </div>
-                <div className="p-3 bg-surface-2 border border-border rounded-lg">
-                  <div className="text-[11px] text-muted uppercase">Files Checked</div>
+                <div className="p-3 bg-surface-2 border border-border rounded-control">
+                  <div className="text-xs text-muted uppercase">Files Checked</div>
                   <div className="text-lg font-bold text-text">
                     {progress?.files_examined || 0}
                   </div>
                 </div>
-                <div className="p-3 bg-surface-2 border border-border rounded-lg">
-                  <div className="text-[11px] text-muted uppercase">Candidates</div>
+                <div className="p-3 bg-surface-2 border border-border rounded-control">
+                  <div className="text-xs text-muted uppercase">Candidates</div>
                   <div className="text-lg font-bold text-accent">
                     {progress?.candidates_found || 0}
                   </div>
                 </div>
-                <div className="p-3 bg-surface-2 border border-border rounded-lg">
-                  <div className="text-[11px] text-muted uppercase">Skipped</div>
+                <div className="p-3 bg-surface-2 border border-border rounded-control">
+                  <div className="text-xs text-muted uppercase">Skipped</div>
                   <div className="text-lg font-bold text-muted">
                     {progress?.skipped_count || 0}
                   </div>
@@ -338,7 +338,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
                 <button
                   type="button"
                   onClick={handleCancelScan}
-                  className="px-4 py-2 text-xs font-semibold text-danger border border-danger/30 hover:bg-danger/10 rounded-lg transition-colors"
+                  className="px-4 py-2 text-xs font-semibold text-danger border border-danger/30 hover:bg-danger/10 rounded-control transition-colors"
                 >
                   Cancel Scan
                 </button>
@@ -350,7 +350,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
           {stage === 'preview' && (
             <div className="space-y-4">
               {scanResult?.is_cancelled && (
-                <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg text-xs text-warning flex items-center justify-between">
+                <div className="p-3 bg-warning/10 border border-warning/20 rounded-control text-xs text-warning flex items-center justify-between">
                   <span>Scan was cancelled early. Showing candidates discovered prior to cancellation.</span>
                   <button
                     onClick={() => setStage('setup')}
@@ -414,7 +414,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
                     return (
                       <div
                         key={candidate.id}
-                        className={`p-3 rounded-lg border transition-all ${
+                        className={`p-3 rounded-control border transition-all ${
                           candidate.selected
                             ? 'bg-surface-2/80 border-accent/30'
                             : 'bg-surface-2/30 border-border opacity-70'
@@ -465,7 +465,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
 
                               {/* Confidence badge */}
                               <span
-                                className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${
+                                className={`text-xs uppercase font-bold px-1.5 py-0.5 rounded border ${
                                   candidate.confidence === 'High'
                                     ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                                     : candidate.confidence === 'Medium'
@@ -478,13 +478,13 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
 
                               {/* Existing in Library badge */}
                               {candidate.existing_game_id && (
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surface border border-border text-muted">
+                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-surface border border-border text-muted">
                                   Already in Library (Will Update)
                                 </span>
                               )}
 
                               {candidate.is_skipped && (
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/20">
+                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/20">
                                   Skipped Utility
                                 </span>
                               )}
@@ -581,7 +581,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
               <button
                 type="button"
                 onClick={handleStartScan}
-                className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent-hover rounded-lg transition-colors shadow-lg shadow-accent/20"
+                className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent-hover rounded-control transition-colors shadow-lg shadow-accent/20"
               >
                 <Play className="w-3.5 h-3.5" />
                 Scan Folder
@@ -594,7 +594,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
               <button
                 type="button"
                 onClick={handleCancelScan}
-                className="px-4 py-2 text-xs font-semibold text-danger border border-danger/30 hover:bg-danger/10 rounded-lg transition-colors"
+                className="px-4 py-2 text-xs font-semibold text-danger border border-danger/30 hover:bg-danger/10 rounded-control transition-colors"
               >
                 Stop / Cancel
               </button>
@@ -614,7 +614,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
                 type="button"
                 disabled={selectedCount === 0 || isSubmitting}
                 onClick={handleImport}
-                className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors shadow-lg shadow-accent/20"
+                className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed rounded-control transition-colors shadow-lg shadow-accent/20"
               >
                 {isSubmitting ? (
                   <>
@@ -636,7 +636,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent-hover rounded-lg transition-colors"
+                className="px-5 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent-hover rounded-control transition-colors"
               >
                 Done
               </button>

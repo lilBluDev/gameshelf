@@ -58,7 +58,7 @@ export const TitleBar: React.FC = () => {
         <span className="text-xs font-semibold tracking-wider text-text uppercase">
           {APP_CONFIG.name}
         </span>
-        <span className="text-[10px] text-muted font-mono px-1.5 py-0.5 rounded bg-surface-2 border border-border">
+        <span className="text-xs text-muted font-mono px-1.5 py-0.5 rounded bg-surface-2 border border-border">
           v{APP_CONFIG.version}
         </span>
       </div>

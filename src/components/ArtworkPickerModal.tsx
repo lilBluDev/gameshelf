@@ -191,7 +191,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
       aria-modal="true"
       aria-labelledby="artwork-modal-title"
     >
-      <div className="flex h-[88vh] w-full max-w-5xl flex-col rounded-xl border border-border bg-surface shadow-2xl">
+      <div className="flex h-[88vh] w-full max-w-5xl flex-col rounded-dialog border border-border bg-surface shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-3">
@@ -207,7 +207,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-text transition-colors"
+            className="rounded-control p-1.5 text-muted hover:bg-surface-2 hover:text-text transition-colors"
             title="Close"
           >
             <X className="h-5 w-5" />
@@ -221,7 +221,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
               <button
                 key={r.id}
                 onClick={() => handleRoleChange(r.id)}
-                className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                className={`rounded-control px-3.5 py-1.5 text-sm font-medium transition-colors ${
                   activeRole === r.id
                     ? 'bg-accent text-white shadow-sm'
                     : 'text-muted hover:bg-surface-2 hover:text-text'
@@ -235,7 +235,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={toggleRoleLock}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 rounded-control px-3 py-1.5 text-xs font-medium transition-colors ${
                 isRoleLocked
                   ? 'bg-warning/20 text-warning border border-warning/30'
                   : 'bg-surface-2 text-muted hover:text-text'
@@ -262,13 +262,13 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search game on SteamGridDB..."
-                className="w-full rounded-lg border border-border bg-surface-2 py-1.5 pl-9 pr-3 text-sm text-text placeholder-muted focus:border-accent focus:outline-none"
+                className="w-full rounded-control border border-border bg-surface-2 py-1.5 pl-9 pr-3 text-sm text-text placeholder-muted focus:border-accent focus:outline-none"
               />
             </div>
             <button
               type="submit"
               disabled={isLoading}
-              className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-medium text-text hover:bg-border transition-colors disabled:opacity-50"
+              className="rounded-control bg-surface-2 px-3 py-1.5 text-sm font-medium text-text hover:bg-border transition-colors disabled:opacity-50"
             >
               Search
             </button>
@@ -277,7 +277,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsLocalInputOpen(!isLocalInputOpen)}
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-text hover:bg-border transition-colors"
+              className="flex items-center gap-1.5 rounded-control border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-text hover:bg-border transition-colors"
             >
               <Upload className="h-3.5 w-3.5 text-muted" />
               Local File
@@ -287,7 +287,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
               <button
                 onClick={handleRestoreAutomatic}
                 disabled={isApplying}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-text hover:bg-border transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-control border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-text hover:bg-border transition-colors disabled:opacity-50"
                 title="Apply the top-scoring community choice"
               >
                 <RotateCcw className="h-3.5 w-3.5 text-muted" />
@@ -299,7 +299,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
               <button
                 onClick={handleRemoveCurrent}
                 disabled={isApplying}
-                className="flex items-center gap-1.5 rounded-lg border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/20 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-control border border-danger/30 bg-danger/10 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/20 transition-colors disabled:opacity-50"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 Remove
@@ -316,12 +316,12 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
               value={customLocalPath}
               onChange={(e) => setCustomLocalPath(e.target.value)}
               placeholder="Enter absolute path to image file (e.g. C:\Images\cover.png)..."
-              className="flex-1 rounded-lg border border-border bg-surface py-1.5 px-3 text-sm text-text placeholder-muted focus:border-accent focus:outline-none"
+              className="flex-1 rounded-control border border-border bg-surface py-1.5 px-3 text-sm text-text placeholder-muted focus:border-accent focus:outline-none"
             />
             <button
               onClick={handleApplyLocal}
               disabled={!customLocalPath.trim() || isApplying}
-              className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-accent-hover transition-colors disabled:opacity-50"
+              className="rounded-control bg-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-accent-hover transition-colors disabled:opacity-50"
             >
               Use Local File
             </button>
@@ -374,7 +374,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
                 return (
                   <div
                     key={cand.asset_id}
-                    className={`group relative flex flex-col overflow-hidden rounded-lg border transition-all ${
+                    className={`group relative flex flex-col overflow-hidden rounded-control border transition-all ${
                       isCurrent
                         ? 'border-accent ring-2 ring-accent/30 bg-accent/5'
                         : 'border-border bg-surface-2 hover:border-accent/50'
@@ -409,11 +409,11 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
 
                       <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
                         {cand.width && cand.height && (
-                          <span className="rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-mono text-white/90 backdrop-blur-xs">
+                          <span className="rounded bg-black/75 px-1.5 py-0.5 text-xs font-mono text-white/90 backdrop-blur-xs">
                             {cand.width}×{cand.height}
                           </span>
                         )}
-                        <span className="rounded bg-black/75 px-1.5 py-0.5 text-[10px] text-white/80">
+                        <span className="rounded bg-black/75 px-1.5 py-0.5 text-xs text-white/80">
                           {cand.provider === 'steam_cdn' ? 'Steam' : `Score ${cand.score}`}
                         </span>
                       </div>
@@ -425,7 +425,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
                         <p className="truncate text-xs font-medium text-text">
                           {cand.author_name || (cand.provider === 'steam_cdn' ? 'Steam CDN' : 'Community')}
                         </p>
-                        <p className="text-[10px] text-muted uppercase">{cand.mime_type?.replace('image/', '') || 'IMAGE'}</p>
+                        <p className="text-xs text-muted uppercase">{cand.mime_type?.replace('image/', '') || 'IMAGE'}</p>
                       </div>
 
                       <button
@@ -450,7 +450,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
         {/* Footer info */}
         <div className="flex items-center justify-between border-t border-border px-6 py-3 text-xs text-muted">
           <span>Artwork sourced via SteamGridDB API v2 &amp; Steam Storefront CDN.</span>
-          <button onClick={onClose} className="rounded-lg bg-surface-2 px-4 py-1.5 font-medium text-text hover:bg-border transition-colors">
+          <button onClick={onClose} className="rounded-control bg-surface-2 px-4 py-1.5 font-medium text-text hover:bg-border transition-colors">
             Done
           </button>
         </div>

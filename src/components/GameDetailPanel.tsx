@@ -484,7 +484,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   setArtworkRole('cover');
                   setIsArtworkModalOpen(true);
                 }}
-                className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-[9px] text-white font-medium transition-opacity"
+                className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-xs text-white font-medium transition-opacity"
                 title="Change Cover Artwork"
               >
                 <Palette className="w-3.5 h-3.5 mb-0.5" />
@@ -498,16 +498,16 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                 {game.title}
               </h2>
               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                <span className="text-[10px] px-2 py-0.5 rounded bg-surface-2 border border-border text-muted font-medium">
+                <span className="text-xs px-2 py-0.5 rounded bg-surface-2 border border-border text-muted font-medium">
                   {game.source_kind}
                 </span>
                 {game.source_id && (
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-surface-2 border border-border text-muted font-mono">
+                  <span className="text-xs px-2 py-0.5 rounded bg-surface-2 border border-border text-muted font-mono">
                     ID: {game.source_id}
                   </span>
                 )}
                 <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                     game.status === 'Installed'
                       ? 'bg-success/15 text-success border border-success/30'
                       : 'bg-danger/15 text-danger border border-danger/30'
@@ -516,7 +516,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   {game.status === 'Installed' ? 'Installed' : 'Missing'}
                 </span>
               </div>
-              <div className="text-[11px] text-muted truncate mt-1">
+              <div className="text-xs text-muted truncate mt-1">
                 {game.developer || '—'} {game.release_year ? `• ${game.release_year}` : ''}
               </div>
             </div>
@@ -528,7 +528,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-semibold text-danger">Executable Not Found</div>
-                <div className="text-[11px] text-text/80 mt-0.5">
+                <div className="text-xs text-text/80 mt-0.5">
                   The game file was moved or deleted. Locate the file or update its path.
                 </div>
                 <button
@@ -608,19 +608,19 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             </button>
 
             {game.last_launched_at && (
-              <div className="text-[10px] text-muted flex items-center justify-center gap-1 mt-1 font-mono">
+              <div className="text-xs text-muted flex items-center justify-center gap-1 mt-1 font-mono">
                 <Clock className="w-3 h-3" />
                 <span>Last played: {new Date(game.last_launched_at).toLocaleDateString()}</span>
               </div>
             )}
 
             {!playtimeTrackingEnabled && (
-              <div className="bg-surface-2/40 border border-border/60 rounded-control p-2 mt-2 flex items-center justify-between text-[11px] text-muted">
+              <div className="bg-surface-2/40 border border-border/60 rounded-control p-2 mt-2 flex items-center justify-between text-xs text-muted">
                 <span>Playtime tracking is off</span>
                 {onOpenSettings && (
                   <button
                     onClick={onOpenSettings}
-                    className="text-accent hover:underline font-medium text-[11px]"
+                    className="text-accent hover:underline font-medium text-xs"
                   >
                     Open Settings
                   </button>
@@ -641,7 +641,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                     </span>
                     {game.source_kind === 'Steam' && (
                       <span
-                        className="text-[10px] text-amber-400/90 font-mono"
+                        className="text-xs text-amber-400/90 font-mono"
                         title="Steam launches are activated via protocol and playtime is tracked approximately"
                       >
                         (Approximate)
@@ -650,7 +650,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-muted pt-1 border-t border-border/40">
+                <div className="flex items-center justify-between text-xs text-muted pt-1 border-t border-border/40">
                   <span>Sessions: <strong className="text-text font-mono">{game.session_count || 0}</strong></span>
                   {game.last_played_at ? (
                     <span>Last: <strong className="text-text font-mono">{new Date(game.last_played_at).toLocaleDateString()}</strong></span>
@@ -660,7 +660,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                 {activeSessionStart && (
                   <div className="bg-accent/10 border border-accent/30 rounded p-2 text-xs space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-accent font-semibold text-[11px] flex items-center gap-1.5">
+                      <span className="text-accent font-semibold text-xs flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
                         Session in progress
                       </span>
@@ -670,7 +670,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                     </div>
                     <button
                       onClick={handleEndSteamSession}
-                      className="w-full py-1 rounded bg-accent hover:bg-accent-hover text-white text-[11px] font-semibold transition-colors"
+                      className="w-full py-1 rounded bg-accent hover:bg-accent-hover text-white text-xs font-semibold transition-colors"
                     >
                       End & Record Session
                     </button>
@@ -681,7 +681,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   <div className="flex justify-end pt-0.5">
                     <button
                       onClick={() => setIsConfirmingResetPlaytime(true)}
-                      className="text-[10px] text-muted hover:text-danger transition-colors underline decoration-dotted"
+                      className="text-xs text-muted hover:text-danger transition-colors underline decoration-dotted"
                     >
                       Reset Playtime
                     </button>
@@ -696,7 +696,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             <button
               onClick={handleOpenFolder}
               title="Open Game Folder"
-              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-[11px]"
+              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-xs"
             >
               <FolderOpen className="w-4 h-4 text-accent" />
               <span>Folder</span>
@@ -708,7 +708,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                 setIsArtworkModalOpen(true);
               }}
               title="Change Game Artwork"
-              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-[11px]"
+              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-xs"
             >
               <Palette className="w-4 h-4 text-purple-400" />
               <span>Artwork</span>
@@ -717,7 +717,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             <button
               onClick={startEditingMetadata}
               title="Edit Title, Notes & Tags"
-              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-[11px]"
+              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-xs"
             >
               <Edit3 className="w-4 h-4 text-text" />
               <span>Edit</span>
@@ -726,7 +726,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             <button
               onClick={startEditingLaunch}
               title="Edit Launch Configuration"
-              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-[11px]"
+              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-xs"
             >
               <Sliders className="w-4 h-4 text-warning" />
               <span>Config</span>
@@ -737,7 +737,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
           <div className="space-y-3 pt-2 border-t border-border">
             {/* Notes Section */}
             <div>
-              <div className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-1">
+              <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">
                 Notes
               </div>
               {game.notes ? (
@@ -747,7 +747,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               ) : (
                 <div
                   onClick={startEditingMetadata}
-                  className="text-[11px] text-muted/60 italic bg-surface-2/20 p-2 rounded-control border border-dashed border-border cursor-pointer hover:border-muted transition-colors"
+                  className="text-xs text-muted/60 italic bg-surface-2/20 p-2 rounded-control border border-dashed border-border cursor-pointer hover:border-muted transition-colors"
                 >
                   Click to add personal notes...
                 </div>
@@ -756,7 +756,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
             {/* User Tags */}
             <div>
-              <div className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-1">
+              <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">
                 Tags
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -764,14 +764,14 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   game.user_tags.map((tag) => (
                     <span
                       key={tag}
-                      className="text-[10px] bg-surface-2 text-text px-2 py-0.5 rounded-full border border-border flex items-center gap-1"
+                      className="text-xs bg-surface-2 text-text px-2 py-0.5 rounded-full border border-border flex items-center gap-1"
                     >
                       <Tag className="w-2.5 h-2.5 text-muted" />
                       <span>{tag}</span>
                     </span>
                   ))
                 ) : (
-                  <span className="text-[11px] text-muted italic">No tags assigned</span>
+                  <span className="text-xs text-muted italic">No tags assigned</span>
                 )}
               </div>
             </div>
@@ -779,14 +779,14 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             {/* Genres & Categories */}
             {game.genres && game.genres.length > 0 && (
               <div>
-                <div className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-1">
+                <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">
                   Genres
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {game.genres.map((genre) => (
                     <span
                       key={genre}
-                      className="text-[10px] bg-surface-2 text-text px-2 py-0.5 rounded-full border border-border"
+                      className="text-xs bg-surface-2 text-text px-2 py-0.5 rounded-full border border-border"
                     >
                       {genre}
                     </span>
@@ -798,10 +798,10 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             {/* Metadata Provenance & Matching */}
             {game.provider_attribution && (
               <div>
-                <div className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-1">
+                <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">
                   Metadata Provenance
                 </div>
-                <div className="bg-surface-2/60 p-2.5 rounded-control border border-border text-[11px] space-y-1">
+                <div className="bg-surface-2/60 p-2.5 rounded-control border border-border text-xs space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-muted">Provider:</span>
                     <span className="font-semibold text-text capitalize">{game.provider_attribution}</span>
@@ -838,10 +838,10 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
             {/* Launch Action Info (Security & path review) */}
             <div>
-              <div className="text-[11px] font-semibold text-muted uppercase tracking-wider mb-1">
+              <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">
                 Target Configuration
               </div>
-              <div className="bg-surface-2/60 p-2.5 rounded-control border border-border font-mono text-[10px] text-muted space-y-1 break-all">
+              <div className="bg-surface-2/60 p-2.5 rounded-control border border-border font-mono text-xs text-muted space-y-1 break-all">
                 {game.launch_action.type === 'Executable' && (
                   <>
                     <div><span className="text-text font-semibold">Executable:</span> {game.launch_action.path}</div>
@@ -971,7 +971,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   {userTags.map((tag) => (
                     <span
                       key={tag}
-                      className="text-[10px] bg-surface-2 border border-border px-2 py-0.5 rounded-full flex items-center gap-1 text-text"
+                      className="text-xs bg-surface-2 border border-border px-2 py-0.5 rounded-full flex items-center gap-1 text-text"
                     >
                       <span>{tag}</span>
                       <button
@@ -1088,7 +1088,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               <p>
                 Are you sure you want to remove <strong>{game.title}</strong> from your GameShelf library?
               </p>
-              <div className="p-3 bg-surface-2 border border-border rounded-card text-muted text-[11px] leading-relaxed">
+              <div className="p-3 bg-surface-2 border border-border rounded-card text-muted text-xs leading-relaxed">
                 <strong className="text-text block mb-0.5">Files are safe:</strong>
                 This only removes the database entry and custom notes from GameShelf. Your game files, installations, and save data on your disk will <strong>NOT</strong> be deleted.
               </div>
@@ -1127,7 +1127,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               <p>
                 Are you sure you want to reset recorded playtime for <strong>{game.title}</strong> to 0?
               </p>
-              <p className="text-muted text-[11px]">
+              <p className="text-muted text-xs">
                 This will clear all local session logs for this game. This action cannot be undone.
               </p>
             </div>

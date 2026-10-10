@@ -296,7 +296,7 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
                   />
                   <FolderOpen className="w-4 h-4 text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
-                <p className="text-[11px] text-muted">
+                <p className="text-xs text-muted">
                   Supported extensions for this profile:{' '}
                   <span className="text-text font-mono">
                     {selectedProfile?.supported_extensions.join(', ') || 'None'}
@@ -321,7 +321,7 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
                       {maxDepth} levels
                     </span>
                   </div>
-                  <p className="text-[11px] text-muted">Prevents unbounded filesystem traversal.</p>
+                  <p className="text-xs text-muted">Prevents unbounded filesystem traversal.</p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -333,7 +333,7 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
                     placeholder=".zip, .7z (comma-separated)"
                     className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent"
                   />
-                  <p className="text-[11px] text-muted">Additional file types to scan for this run.</p>
+                  <p className="text-xs text-muted">Additional file types to scan for this run.</p>
                 </div>
               </div>
             </div>
@@ -361,17 +361,17 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
               {/* Summary Stats */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-surface-2/60 border border-border rounded-control p-3">
-                  <div className="text-[11px] text-muted">ROM Candidates Found</div>
+                  <div className="text-xs text-muted">ROM Candidates Found</div>
                   <div className="text-lg font-bold text-text">{candidates.length}</div>
                 </div>
                 <div className="bg-surface-2/60 border border-border rounded-control p-3">
-                  <div className="text-[11px] text-muted">Grouped Tracks & Discs</div>
+                  <div className="text-xs text-muted">Grouped Tracks & Discs</div>
                   <div className="text-lg font-bold text-accent">
                     {scanResult.grouped_files_count}
                   </div>
                 </div>
                 <div className="bg-surface-2/60 border border-border rounded-control p-3">
-                  <div className="text-[11px] text-muted">Already in Library</div>
+                  <div className="text-xs text-muted">Already in Library</div>
                   <div className="text-lg font-bold text-muted">
                     {scanResult.duplicates_count}
                   </div>
@@ -444,13 +444,13 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
                                 />
                                 <button
                                   onClick={() => handleSaveTitleEdit(cand.id)}
-                                  className="text-[11px] bg-accent text-white px-2 py-0.5 rounded"
+                                  className="text-xs bg-accent text-white px-2 py-0.5 rounded"
                                 >
                                   Save
                                 </button>
                                 <button
                                   onClick={() => setEditingId(null)}
-                                  className="text-[11px] text-muted hover:text-text px-1"
+                                  className="text-xs text-muted hover:text-text px-1"
                                 >
                                   Cancel
                                 </button>
@@ -474,31 +474,31 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
                             )}
 
                             {/* System Tag */}
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-surface border border-border text-muted flex-shrink-0">
+                            <span className="text-xs font-medium px-2 py-0.5 rounded bg-surface border border-border text-muted flex-shrink-0">
                               {cand.system}
                             </span>
 
                             {/* Duplicate Tag */}
                             {cand.is_duplicate && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-warning/10 text-warning border border-warning/20 flex-shrink-0">
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-warning/10 text-warning border border-warning/20 flex-shrink-0">
                                 In Library
                               </span>
                             )}
                           </div>
 
                           {/* File Path & Size */}
-                          <div className="text-[11px] text-muted font-mono truncate mt-0.5">
+                          <div className="text-xs text-muted font-mono truncate mt-0.5">
                             {cand.rom_path}
                           </div>
 
                           {/* Grouped Badges */}
                           <div className="flex flex-wrap items-center gap-2 mt-2">
-                            <span className="text-[10px] text-muted bg-surface/50 px-2 py-0.5 rounded border border-border/60">
+                            <span className="text-xs text-muted bg-surface/50 px-2 py-0.5 rounded border border-border/60">
                               {formatBytes(cand.file_size_bytes)}
                             </span>
 
                             {cand.grouped_files.length > 0 && (
-                              <span className="text-[10px] text-accent bg-accent/10 border border-accent/20 px-2 py-0.5 rounded flex items-center gap-1">
+                              <span className="text-xs text-accent bg-accent/10 border border-accent/20 px-2 py-0.5 rounded flex items-center gap-1">
                                 <Layers className="w-3 h-3" />
                                 {cand.grouped_files.length} linked track(s) / disc(s) grouped
                               </span>

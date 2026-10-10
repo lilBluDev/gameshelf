@@ -674,7 +674,7 @@ export const App: React.FC = () => {
               <p>
                 Are you sure you want to remove <strong>{gameToRemove.title}</strong> from your GameShelf library?
               </p>
-              <div className="p-3 bg-surface-2 border border-border rounded-card text-muted text-[11px] leading-relaxed">
+              <div className="p-3 bg-surface-2 border border-border rounded-card text-muted text-xs leading-relaxed">
                 <strong className="text-text block mb-0.5">Files are safe:</strong>
                 This only removes the database entry and custom notes from GameShelf. Your game files, installations, and save data on your disk will <strong>NOT</strong> be deleted.
               </div>

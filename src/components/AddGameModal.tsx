@@ -162,7 +162,7 @@ export const AddGameModal: React.FC<AddGameModalProps> = ({
                 <span>Browse</span>
               </button>
             </div>
-            <p className="text-[11px] text-muted">
+            <p className="text-xs text-muted">
               Select any PC game executable or desktop shortcut. GameShelf infers metadata without altering your files.
             </p>
           </div>
@@ -173,7 +173,7 @@ export const AddGameModal: React.FC<AddGameModalProps> = ({
               <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-semibold text-warning">Game already exists in library</div>
-                <div className="text-[11px] text-text/80 mt-0.5">
+                <div className="text-xs text-text/80 mt-0.5">
                   <strong>{duplicateGame.title}</strong> is already registered with this executable path.
                 </div>
                 <div className="flex items-center gap-2 mt-2">
@@ -222,7 +222,7 @@ export const AddGameModal: React.FC<AddGameModalProps> = ({
                 value={workingDir}
                 onChange={(e) => setWorkingDir(e.target.value)}
                 placeholder="Defaults to executable parent folder"
-                className="w-full bg-surface-2/70 border border-border rounded-control px-3 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent font-mono text-[11px]"
+                className="w-full bg-surface-2/70 border border-border rounded-control px-3 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent font-mono text-xs"
               />
             </div>
 
@@ -233,7 +233,7 @@ export const AddGameModal: React.FC<AddGameModalProps> = ({
                 value={argsString}
                 onChange={(e) => setArgsString(e.target.value)}
                 placeholder="-fullscreen -novid"
-                className="w-full bg-surface-2/70 border border-border rounded-control px-3 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent font-mono text-[11px]"
+                className="w-full bg-surface-2/70 border border-border rounded-control px-3 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent font-mono text-xs"
               />
             </div>
           </div>

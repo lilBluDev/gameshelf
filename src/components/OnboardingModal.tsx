@@ -105,12 +105,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         {/* Header with step indicators */}
         <div className="h-14 border-b border-border px-6 flex items-center justify-between bg-surface-2/40 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-accent/20 border border-accent/40 flex items-center justify-center text-accent">
+            <div className="w-7 h-7 rounded-control bg-accent/20 border border-accent/40 flex items-center justify-center text-accent">
               <Gamepad2 className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-text">Welcome to GameShelf</h2>
-              <p className="text-[11px] text-muted">First-time library setup (Step {step} of 4)</p>
+              <p className="text-xs text-muted">First-time library setup (Step {step} of 4)</p>
             </div>
           </div>
           <button
@@ -161,7 +161,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Steam Detected ({steamStatus.libraries.length} library folder(s))</span>
                     </div>
-                    <div className="text-[11px] text-muted font-mono break-all bg-surface/50 p-2 rounded border border-border/50">
+                    <div className="text-xs text-muted font-mono break-all bg-surface/50 p-2 rounded border border-border/50">
                       {steamStatus.steam_path}
                     </div>
 
@@ -192,14 +192,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 ) : (
                   <div className="text-xs text-muted space-y-1">
                     <div className="text-text font-medium">Steam was not automatically found.</div>
-                    <div className="text-[11px]">
+                    <div className="text-xs">
                       No problem! You can link your Steam folder or add standalone games anytime in Settings.
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="text-[11px] text-muted flex items-center gap-1.5">
+              <div className="text-xs text-muted flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-accent" />
                 <span>Local-first: GameShelf reads local app manifests only. No login required.</span>
               </div>
@@ -223,7 +223,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                       <FolderSearch className="w-4 h-4 text-accent" />
                       <span>PC Game Folders</span>
                     </div>
-                    <p className="text-[11px] text-muted mt-1">
+                    <p className="text-xs text-muted mt-1">
                       Scan folders for .exe and .lnk shortcuts with smart filtering.
                     </p>
                   </div>
@@ -246,7 +246,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                       <Disc className="w-4 h-4 text-accent" />
                       <span>Emulators & ROMs</span>
                     </div>
-                    <p className="text-[11px] text-muted mt-1">
+                    <p className="text-xs text-muted mt-1">
                       Configure emulator profiles (RetroArch, RPCS3, Dolphin, etc.) and ROM paths.
                     </p>
                   </div>
@@ -264,7 +264,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </div>
               </div>
 
-              <div className="text-[11px] text-muted">
+              <div className="text-xs text-muted">
                 You can scan and import directories at any time using the TopBar controls or Settings.
               </div>
             </div>
@@ -324,7 +324,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   )}
                 </div>
 
-                <div className="text-[11px] text-muted space-y-1 pt-1 border-t border-border/50">
+                <div className="text-xs text-muted space-y-1 pt-1 border-t border-border/50">
                   <div>
                     Need a free key? Get one at{' '}
                     <span className="text-accent font-mono">steamgriddb.com/profile/preferences/api</span>

@@ -22,10 +22,13 @@ export default {
         warning: 'var(--color-warning)',
         danger: 'var(--color-danger)',
       },
+      fontSize: {
+        body: ['13px', '18px'],
+      },
       borderRadius: {
         control: '8px',
         card: '10px',
-        dialog: '14px',
+        dialog: '12px',
       },
       aspectRatio: {
         'cover': '2 / 3',

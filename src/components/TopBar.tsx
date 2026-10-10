@@ -86,7 +86,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         {/* Sort selector */}
         <div className="flex items-center gap-1.5 bg-surface border border-border rounded-control px-2.5 py-1 text-xs text-text focus-within:border-accent focus-within:ring-1 focus-within:ring-accent">
           <ArrowUpDown className="w-3.5 h-3.5 text-muted" />
-          <span className="text-muted text-[11px]">Sort:</span>
+          <span className="text-muted text-xs">Sort:</span>
           <select
             value={sortBy}
             onChange={(e) => onSortByChange(e.target.value as SortField)}

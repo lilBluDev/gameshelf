@@ -40,7 +40,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center p-12 text-center h-full max-w-md mx-auto">
-      <div className="w-20 h-20 rounded-2xl bg-surface border border-border flex items-center justify-center mb-5 text-accent shadow-inner">
+      <div className="w-20 h-20 rounded-dialog bg-surface border border-border flex items-center justify-center mb-5 text-accent shadow-inner">
         <Gamepad2 className="w-10 h-10" />
       </div>
       <h3 className="text-lg font-semibold text-text mb-2">Your shelf is empty</h3>
@@ -53,7 +53,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         {onOpenScanFolder && (
           <button
             onClick={onOpenScanFolder}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-semibold shadow-lg shadow-accent/20 transition-all"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-control bg-accent hover:bg-accent-hover text-white text-xs font-semibold shadow-lg shadow-accent/20 transition-all"
           >
             <FolderSearch className="w-4 h-4" />
             <span>Scan Folder for Games</span>
@@ -62,7 +62,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         {onOpenScanRoms && (
           <button
             onClick={onOpenScanRoms}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-lg bg-surface border border-border hover:bg-surface-2 text-text text-xs font-medium transition-all"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-control bg-surface border border-border hover:bg-surface-2 text-text text-xs font-medium transition-all"
           >
             <Disc className="w-4 h-4 text-accent" />
             <span>Scan for ROMs</span>
@@ -71,7 +71,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         {onOpenAddGame && (
           <button
             onClick={onOpenAddGame}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-lg bg-surface border border-border hover:bg-surface-2 text-text text-xs font-medium transition-all"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-control bg-surface border border-border hover:bg-surface-2 text-text text-xs font-medium transition-all"
           >
             <Plus className="w-4 h-4" />
             <span>Add Single Game</span>
