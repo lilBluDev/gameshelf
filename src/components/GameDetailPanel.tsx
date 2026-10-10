@@ -407,10 +407,10 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
           <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10">
             <button
               onClick={handleToggleFavorite}
-              className={`p-1.5 rounded-control backdrop-blur border transition-colors ${
+              className={`p-1.5 rounded-control border transition-colors ${
                 game.is_favorite
                   ? 'bg-danger/20 border-danger/40 text-danger'
-                  : 'bg-bg/70 border-border text-muted hover:text-white'
+                  : 'bg-surface/90  text-muted hover:text-white'
               }`}
               title={game.is_favorite ? 'Remove Favorite' : 'Mark as Favorite'}
             >
@@ -423,7 +423,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   setArtworkRole('hero');
                   setIsArtworkModalOpen(true);
                 }}
-                className="p-1.5 rounded-control bg-bg/70 backdrop-blur border border-border text-muted hover:text-white transition-colors"
+                className="p-1.5 rounded-control bg-surface/90 text-muted hover:text-white transition-colors"
                 title="Change Hero Banner Artwork"
               >
                 <ImageIcon className="w-3.5 h-3.5" />
@@ -432,7 +432,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               <button
                 ref={moreButtonRef}
                 onClick={handleToggleMenu}
-                className="p-1.5 rounded-control bg-bg/70 backdrop-blur border border-border text-muted hover:text-white transition-colors"
+                className="p-1.5 rounded-control bg-surface/90 text-muted hover:text-white transition-colors"
                 title="More Actions"
                 aria-label="More Actions"
               >
@@ -441,7 +441,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-control bg-bg/70 backdrop-blur border border-border text-muted hover:text-white transition-colors"
+                className="p-1.5 rounded-control bg-surface/90 text-muted hover:text-white transition-colors"
                 title="Close Panel"
               >
                 <X className="w-3.5 h-3.5" />
@@ -466,7 +466,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
           <div className="flex gap-3 items-start">
             {/* 2:3 Cover preview with Change button */}
             <div
-              className="relative group w-16 aspect-[2/3] rounded-control overflow-hidden border border-border shadow flex-shrink-0 flex items-center justify-center font-bold text-white text-xs select-none"
+              className="relative group w-16 aspect-[2/3] rounded-control overflow-hidden shadow flex-shrink-0 flex items-center justify-center font-bold text-white text-xs select-none"
               style={{ background: coverSrc ? undefined : gradient }}
             >
               {coverSrc ? (
@@ -498,11 +498,11 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                 {game.title}
               </h2>
               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                <span className="text-xs px-2 py-0.5 rounded bg-surface-2 border border-border text-muted font-medium">
+                <span className="text-xs px-2 py-0.5 rounded bg-surface-2 text-muted font-medium">
                   {game.source_kind}
                 </span>
                 {game.source_id && (
-                  <span className="text-xs px-2 py-0.5 rounded bg-surface-2 border border-border text-muted font-mono">
+                  <span className="text-xs px-2 py-0.5 rounded bg-surface-2 text-muted font-mono">
                     ID: {game.source_id}
                   </span>
                 )}
@@ -549,9 +549,9 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               disabled={isLaunching || Boolean(isTrackingActive)}
               className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-control font-semibold text-xs transition-all shadow-md ${
                 game.status === 'Missing'
-                  ? 'bg-surface-2 border border-border text-text hover:bg-border'
+                  ? 'bg-surface-2 border border-muted/20 text-text hover:bg-border'
                   : isTrackingActive
-                  ? 'bg-emerald-600/80 text-white cursor-default'
+                  ? 'bg-success/80 text-white cursor-default'
                   : 'bg-accent hover:bg-accent-hover text-white'
               }`}
             >
@@ -615,7 +615,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             )}
 
             {!playtimeTrackingEnabled && (
-              <div className="bg-surface-2/40 border border-border/60 rounded-control p-2 mt-2 flex items-center justify-between text-xs text-muted">
+              <div className="bg-surface-2/40 border border-muted/20 rounded-control p-2 mt-2 flex items-center justify-between text-xs text-muted">
                 <span>Playtime tracking is off</span>
                 {onOpenSettings && (
                   <button
@@ -650,7 +650,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-muted pt-1 border-t border-border/40">
+                <div className="flex items-center justify-between text-xs text-muted pt-1 border-t ">
                   <span>Sessions: <strong className="text-text font-mono">{game.session_count || 0}</strong></span>
                   {game.last_played_at ? (
                     <span>Last: <strong className="text-text font-mono">{new Date(game.last_played_at).toLocaleDateString()}</strong></span>
@@ -696,7 +696,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             <button
               onClick={handleOpenFolder}
               title="Open Game Folder"
-              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-xs"
+              className="flex flex-col items-center justify-center p-2 rounded-control bg-surface-2/60 hover:bg-surface-2 text-muted hover:text-text transition-colors gap-1 text-xs"
             >
               <FolderOpen className="w-4 h-4 text-accent" />
               <span>Folder</span>
@@ -708,16 +708,16 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                 setIsArtworkModalOpen(true);
               }}
               title="Change Game Artwork"
-              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-xs"
+              className="flex flex-col items-center justify-center p-2 rounded-control bg-surface-2/60 hover:bg-surface-2 text-muted hover:text-text transition-colors gap-1 text-xs"
             >
-              <Palette className="w-4 h-4 text-purple-400" />
+              <Palette className="w-4 h-4 text-accent" />
               <span>Artwork</span>
             </button>
 
             <button
               onClick={startEditingMetadata}
               title="Edit Title, Notes & Tags"
-              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-xs"
+              className="flex flex-col items-center justify-center p-2 rounded-control bg-surface-2/60 hover:bg-surface-2 text-muted hover:text-text transition-colors gap-1 text-xs"
             >
               <Edit3 className="w-4 h-4 text-text" />
               <span>Edit</span>
@@ -726,7 +726,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
             <button
               onClick={startEditingLaunch}
               title="Edit Launch Configuration"
-              className="flex flex-col items-center justify-center p-2 rounded-card bg-surface-2 border border-border hover:border-muted text-muted hover:text-text transition-colors gap-1 text-xs"
+              className="flex flex-col items-center justify-center p-2 rounded-control bg-surface-2/60 hover:bg-surface-2 text-muted hover:text-text transition-colors gap-1 text-xs"
             >
               <Sliders className="w-4 h-4 text-warning" />
               <span>Config</span>
@@ -741,7 +741,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                 Notes
               </div>
               {game.notes ? (
-                <p className="text-xs text-text/80 bg-surface-2/40 p-2.5 rounded-control border border-border whitespace-pre-wrap leading-relaxed">
+                <p className="text-xs text-text/80 bg-surface-2/30 p-2.5 rounded-control whitespace-pre-wrap leading-relaxed">
                   {game.notes}
                 </p>
               ) : (
@@ -764,7 +764,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   game.user_tags.map((tag) => (
                     <span
                       key={tag}
-                      className="text-xs bg-surface-2 text-text px-2 py-0.5 rounded-full border border-border flex items-center gap-1"
+                      className="text-xs bg-surface-2 text-text px-2 py-0.5 rounded-full flex items-center gap-1"
                     >
                       <Tag className="w-2.5 h-2.5 text-muted" />
                       <span>{tag}</span>
@@ -786,7 +786,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   {game.genres.map((genre) => (
                     <span
                       key={genre}
-                      className="text-xs bg-surface-2 text-text px-2 py-0.5 rounded-full border border-border"
+                      className="text-xs bg-surface-2 text-text px-2 py-0.5 rounded-full"
                     >
                       {genre}
                     </span>
@@ -801,7 +801,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                 <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">
                   Metadata Provenance
                 </div>
-                <div className="bg-surface-2/60 p-2.5 rounded-control border border-border text-xs space-y-1">
+                <div className="bg-surface-2/40 p-2.5 rounded-control text-xs space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-muted">Provider:</span>
                     <span className="font-semibold text-text capitalize">{game.provider_attribution}</span>
@@ -841,7 +841,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">
                 Target Configuration
               </div>
-              <div className="bg-surface-2/60 p-2.5 rounded-control border border-border font-mono text-xs text-muted space-y-1 break-all">
+              <div className="bg-surface-2/40 p-2.5 rounded-control font-mono text-xs text-muted space-y-1 break-all">
                 {game.launch_action.type === 'Executable' && (
                   <>
                     <div><span className="text-text font-semibold">Executable:</span> {game.launch_action.path}</div>
@@ -903,7 +903,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
       {/* Modal 1: Edit Metadata (Overrides) */}
       {isEditingMetadata && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
           <div className="w-full max-w-md bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-2.5">
               <h3 className="text-xs font-bold text-text uppercase tracking-wider">Edit Game Details</h3>
@@ -919,7 +919,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full bg-surface-2 border border-border rounded-control px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-accent"
+                  className="w-full bg-surface-2 border border-muted/20 rounded-control px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-accent"
                 />
               </div>
 
@@ -930,7 +930,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
                   placeholder="Personal notes, walkthrough reminders, save backup notes..."
-                  className="w-full bg-surface-2 border border-border rounded-control p-2 text-xs text-text focus:outline-none focus:border-accent"
+                  className="w-full bg-surface-2 border border-muted/20 rounded-control p-2 text-xs text-text focus:outline-none focus:border-accent"
                 />
               </div>
 
@@ -951,7 +951,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                         }
                       }
                     }}
-                    className="flex-1 bg-surface-2 border border-border rounded-control px-2.5 py-1 text-xs text-text focus:outline-none focus:border-accent"
+                    className="flex-1 bg-surface-2 border border-muted/20 rounded-control px-2.5 py-1 text-xs text-text focus:outline-none focus:border-accent"
                   />
                   <button
                     type="button"
@@ -961,7 +961,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                         setNewTagInput('');
                       }
                     }}
-                    className="px-2.5 py-1 rounded-control bg-surface-2 border border-border text-xs text-text hover:bg-border"
+                    className="px-2.5 py-1 rounded-control bg-surface-2 text-xs text-text hover:bg-border"
                   >
                     Add
                   </button>
@@ -971,7 +971,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   {userTags.map((tag) => (
                     <span
                       key={tag}
-                      className="text-xs bg-surface-2 border border-border px-2 py-0.5 rounded-full flex items-center gap-1 text-text"
+                      className="text-xs bg-surface-2 px-2 py-0.5 rounded-full flex items-center gap-1 text-text"
                     >
                       <span>{tag}</span>
                       <button
@@ -1009,7 +1009,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
       {/* Modal 2: Edit Launch Settings / Locate File */}
       {isEditingLaunch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
           <div className="w-full max-w-lg bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-2.5">
               <h3 className="text-xs font-bold text-text uppercase tracking-wider">
@@ -1027,7 +1027,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   type="text"
                   value={editExePath}
                   onChange={(e) => setEditExePath(e.target.value)}
-                  className="w-full bg-surface-2 border border-border rounded-control px-2.5 py-1.5 text-xs text-text font-mono focus:outline-none focus:border-accent"
+                  className="w-full bg-surface-2 border border-muted/20 rounded-control px-2.5 py-1.5 text-xs text-text font-mono focus:outline-none focus:border-accent"
                   placeholder="C:\Path\To\Game.exe"
                 />
               </div>
@@ -1038,7 +1038,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   type="text"
                   value={editWorkingDir}
                   onChange={(e) => setEditWorkingDir(e.target.value)}
-                  className="w-full bg-surface-2 border border-border rounded-control px-2.5 py-1.5 text-xs text-text font-mono focus:outline-none focus:border-accent"
+                  className="w-full bg-surface-2 border border-muted/20 rounded-control px-2.5 py-1.5 text-xs text-text font-mono focus:outline-none focus:border-accent"
                   placeholder="Defaults to executable directory"
                 />
               </div>
@@ -1049,7 +1049,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
                   type="text"
                   value={editArgs}
                   onChange={(e) => setEditArgs(e.target.value)}
-                  className="w-full bg-surface-2 border border-border rounded-control px-2.5 py-1.5 text-xs text-text font-mono focus:outline-none focus:border-accent"
+                  className="w-full bg-surface-2 border border-muted/20 rounded-control px-2.5 py-1.5 text-xs text-text font-mono focus:outline-none focus:border-accent"
                   placeholder="-novid -fullscreen"
                 />
               </div>
@@ -1077,7 +1077,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
       {/* Modal 3: Remove from Library Confirmation Dialog */}
       {isConfirmingRemove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
           <div className="w-full max-w-md bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
             <div className="flex items-center gap-2.5 text-danger border-b border-border pb-2.5">
               <Trash2 className="w-5 h-5 flex-shrink-0" />
@@ -1088,7 +1088,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
               <p>
                 Are you sure you want to remove <strong>{game.title}</strong> from your GameShelf library?
               </p>
-              <div className="p-3 bg-surface-2 border border-border rounded-card text-muted text-xs leading-relaxed">
+              <div className="p-3 bg-surface-2/50 rounded-control text-muted text-xs leading-relaxed">
                 <strong className="text-text block mb-0.5">Files are safe:</strong>
                 This only removes the database entry and custom notes from GameShelf. Your game files, installations, and save data on your disk will <strong>NOT</strong> be deleted.
               </div>
@@ -1116,7 +1116,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
       {/* Modal 4: Reset Playtime Confirmation Dialog */}
       {isConfirmingResetPlaytime && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
           <div className="w-full max-w-sm bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
             <div className="flex items-center gap-2.5 text-warning border-b border-border pb-2.5">
               <RotateCcw className="w-5 h-5 flex-shrink-0" />

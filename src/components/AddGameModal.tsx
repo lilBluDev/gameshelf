@@ -113,20 +113,28 @@ export const AddGameModal: React.FC<AddGameModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 select-none animate-in fade-in duration-150">
-      <div className="w-full max-w-xl bg-surface border border-border rounded-dialog shadow-2xl flex flex-col overflow-hidden">
-        {/* Header */}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 select-none"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          handleReset();
+          onClose();
+        }
+      }}
+    >
+      <div className="w-full max-w-xl max-h-[88vh] bg-surface border border-border rounded-dialog shadow-2xl flex flex-col overflow-hidden">
         <div className="h-12 border-b border-border px-5 flex items-center justify-between bg-surface-2/40 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Plus className="w-4 h-4 text-accent" />
-            <h3 className="text-sm font-bold text-text">Add Game to Library</h3>
+            <h3 className="text-sm font-semibold text-text">Add Game to Library</h3>
           </div>
           <button
             onClick={() => {
               handleReset();
               onClose();
             }}
-            className="p-1 rounded-control text-muted hover:text-text hover:bg-surface-2 transition-colors"
+            aria-label="Close"
+            className="p-1 rounded-control text-muted hover:text-text hover:bg-surface-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
           >
             <X className="w-4 h-4" />
           </button>

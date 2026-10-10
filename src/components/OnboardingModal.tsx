@@ -100,8 +100,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 select-none">
-      <div className="w-full max-w-xl bg-surface border border-border rounded-dialog shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 select-none">
+      <div className="w-full max-w-xl bg-surface border border-border rounded-dialog shadow-2xl flex flex-col overflow-hidden">
         {/* Header with step indicators */}
         <div className="h-14 border-b border-border px-6 flex items-center justify-between bg-surface-2/40 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -149,7 +149,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </p>
               </div>
 
-              <div className="bg-surface-2/50 border border-border rounded-card p-4 space-y-3">
+              <div className="bg-surface-2/40 rounded-card p-4 space-y-3">
                 {loadingSteam ? (
                   <div className="flex items-center gap-2 text-xs text-muted py-2">
                     <RefreshCw className="w-4 h-4 animate-spin text-accent" />
@@ -217,7 +217,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-surface-2/40 border border-border rounded-card p-4 space-y-2 flex flex-col justify-between">
+                <div className="bg-surface-2/30 rounded-card p-4 space-y-2 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-2 text-text font-medium text-xs">
                       <FolderSearch className="w-4 h-4 text-accent" />
@@ -233,14 +233,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                         handleFinish();
                         onOpenScanFolder();
                       }}
-                      className="w-full py-1.5 bg-surface border border-border hover:bg-surface-2 text-text text-xs font-medium rounded-control transition-colors"
+                      className="w-full py-1.5 bg-surface-2 hover:bg-surface-2/80 text-text text-xs font-medium rounded-control transition-colors"
                     >
                       Scan Folder
                     </button>
                   )}
                 </div>
 
-                <div className="bg-surface-2/40 border border-border rounded-card p-4 space-y-2 flex flex-col justify-between">
+                <div className="bg-surface-2/30 rounded-card p-4 space-y-2 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-2 text-text font-medium text-xs">
                       <Disc className="w-4 h-4 text-accent" />
@@ -256,7 +256,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                         handleFinish();
                         onOpenScanRoms();
                       }}
-                      className="w-full py-1.5 bg-surface border border-border hover:bg-surface-2 text-text text-xs font-medium rounded-control transition-colors"
+                      className="w-full py-1.5 bg-surface-2 hover:bg-surface-2/80 text-text text-xs font-medium rounded-control transition-colors"
                     >
                       Setup ROMs
                     </button>
@@ -283,7 +283,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </p>
               </div>
 
-              <div className="bg-surface-2/40 border border-border rounded-card p-4 space-y-3">
+              <div className="bg-surface-2/30 rounded-card p-4 space-y-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-text flex items-center gap-1.5">
                     <Key className="w-3.5 h-3.5 text-accent" />
@@ -351,7 +351,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </p>
               </div>
 
-              <div className="bg-surface-2/40 border border-border rounded-card p-4 max-w-sm mx-auto text-left text-xs space-y-2">
+              <div className="bg-surface-2/30 rounded-card p-4 max-w-sm mx-auto text-left text-xs space-y-2">
                 <div className="flex items-center justify-between text-muted">
                   <span>Steam Integration</span>
                   <span className="text-text font-medium">{steamStatus?.is_installed ? 'Active' : 'Manual'}</span>
@@ -375,7 +375,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             {step > 1 ? (
               <button
                 onClick={() => setStep(step - 1)}
-                className="px-4 py-1.5 rounded-control border border-border text-xs text-muted hover:text-text hover:bg-surface-2 transition-colors"
+                className="px-4 py-1.5 rounded-control text-xs text-muted hover:text-text hover:bg-surface-2 transition-colors"
               >
                 Back
               </button>

@@ -186,7 +186,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="artwork-modal-title"
@@ -409,7 +409,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
 
                       <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
                         {cand.width && cand.height && (
-                          <span className="rounded bg-black/75 px-1.5 py-0.5 text-xs font-mono text-white/90 backdrop-blur-xs">
+                          <span className="rounded bg-black/80 px-1.5 py-0.5 text-xs font-mono text-white/90">
                             {cand.width}×{cand.height}
                           </span>
                         )}

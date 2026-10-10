@@ -183,7 +183,7 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
       <div className="bg-surface border border-border rounded-dialog shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-2/40">
@@ -233,7 +233,7 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
                   <select
                     value={selectedProfileId}
                     onChange={(e) => setSelectedProfileId(e.target.value)}
-                    className="w-full bg-surface-2 border border-border rounded-control px-3 py-2 text-xs text-text focus:outline-none focus:border-accent"
+                    className="w-full bg-surface-2/60 rounded-control px-3 py-2 text-xs text-text focus:outline-none focus:border-accent"
                   >
                     {profiles.map((p) => {
                       const statusStr =
@@ -272,7 +272,7 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
                   <select
                     value={selectedSystem}
                     onChange={(e) => setSelectedSystem(e.target.value)}
-                    className="w-full bg-surface-2 border border-border rounded-control px-3 py-2 text-xs text-text focus:outline-none focus:border-accent"
+                    className="w-full bg-surface-2/60 rounded-control px-3 py-2 text-xs text-text focus:outline-none focus:border-accent"
                   >
                     {selectedProfile.systems.map((sys) => (
                       <option key={sys} value={sys}>
@@ -292,7 +292,7 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
                     value={folderPath}
                     onChange={(e) => setFolderPath(e.target.value)}
                     placeholder="e.g. D:\Emulation\ROMs\PS1 or C:\Games\SNES"
-                    className="w-full bg-surface-2 border border-border rounded-control px-3 py-2 pr-9 text-xs text-text placeholder-muted focus:outline-none focus:border-accent"
+                    className="w-full bg-surface-2/60 rounded-control px-3 py-2 pr-9 text-xs text-text placeholder-muted focus:outline-none focus:border-accent"
                   />
                   <FolderOpen className="w-4 h-4 text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
@@ -317,7 +317,7 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
                       onChange={(e) => setMaxDepth(parseInt(e.target.value, 10))}
                       className="flex-1 accent-accent"
                     />
-                    <span className="text-xs font-mono text-text bg-surface-2 px-2 py-0.5 rounded border border-border">
+                    <span className="text-xs font-mono text-text bg-surface-2 px-2 py-0.5 rounded">
                       {maxDepth} levels
                     </span>
                   </div>
@@ -331,7 +331,7 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
                     value={extraExtensions}
                     onChange={(e) => setExtraExtensions(e.target.value)}
                     placeholder=".zip, .7z (comma-separated)"
-                    className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent"
+                    className="w-full bg-surface-2/60 rounded-control px-3 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent"
                   />
                   <p className="text-xs text-muted">Additional file types to scan for this run.</p>
                 </div>
@@ -474,7 +474,7 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
                             )}
 
                             {/* System Tag */}
-                            <span className="text-xs font-medium px-2 py-0.5 rounded bg-surface border border-border text-muted flex-shrink-0">
+                            <span className="text-xs font-medium px-2 py-0.5 rounded bg-surface text-muted flex-shrink-0">
                               {cand.system}
                             </span>
 
@@ -493,7 +493,7 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
 
                           {/* Grouped Badges */}
                           <div className="flex flex-wrap items-center gap-2 mt-2">
-                            <span className="text-xs text-muted bg-surface/50 px-2 py-0.5 rounded border border-border/60">
+                            <span className="text-xs text-muted bg-surface/50 px-2 py-0.5 rounded/60">
                               {formatBytes(cand.file_size_bytes)}
                             </span>
 

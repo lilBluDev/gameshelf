@@ -185,7 +185,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75"
       role="dialog"
       aria-modal="true"
       aria-labelledby="scan-modal-title"
@@ -240,7 +240,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
                     value={folderPath}
                     onChange={(e) => setFolderPath(e.target.value)}
                     placeholder="e.g. D:\Games or C:\Games\PC"
-                    className="flex-1 px-3 py-2 bg-surface-2 border border-border rounded-control text-sm text-text placeholder-muted focus:outline-none focus:border-accent"
+                    className="flex-1 px-3 py-2 bg-surface-2/60 rounded-control text-sm text-text placeholder-muted focus:outline-none focus:border-accent"
                     autoFocus
                   />
                 </div>
@@ -250,7 +250,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
               </div>
 
               {/* Bounded Recursion Depth */}
-              <div className="p-4 bg-surface-2/40 border border-border/80 rounded-control space-y-3">
+              <div className="p-4 bg-surface-2/30 rounded-control space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium text-text">Folder Recursion Depth</div>
@@ -280,7 +280,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
               </div>
 
               {/* Safe Scan Guard Notice */}
-              <div className="flex items-start gap-3 p-3.5 bg-surface-2/20 border border-border rounded-control text-xs text-muted">
+              <div className="flex items-start gap-3 p-3.5 bg-surface-2/20 rounded-control text-xs text-muted">
                 <HelpCircle className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" />
                 <p>
                   <strong>Safety guarantee:</strong> GameShelf never scans entire disk drives (e.g.{' '}
@@ -308,25 +308,25 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
 
               {/* Progress metrics grid */}
               <div className="grid grid-cols-4 gap-3 max-w-xl mx-auto text-left">
-                <div className="p-3 bg-surface-2 border border-border rounded-control">
+                <div className="p-3 bg-surface-2/60 rounded-control">
                   <div className="text-xs text-muted uppercase">Folders</div>
                   <div className="text-lg font-bold text-text">
                     {progress?.folders_scanned || 0}
                   </div>
                 </div>
-                <div className="p-3 bg-surface-2 border border-border rounded-control">
+                <div className="p-3 bg-surface-2/60 rounded-control">
                   <div className="text-xs text-muted uppercase">Files Checked</div>
                   <div className="text-lg font-bold text-text">
                     {progress?.files_examined || 0}
                   </div>
                 </div>
-                <div className="p-3 bg-surface-2 border border-border rounded-control">
+                <div className="p-3 bg-surface-2/60 rounded-control">
                   <div className="text-xs text-muted uppercase">Candidates</div>
                   <div className="text-lg font-bold text-accent">
                     {progress?.candidates_found || 0}
                   </div>
                 </div>
-                <div className="p-3 bg-surface-2 border border-border rounded-control">
+                <div className="p-3 bg-surface-2/60 rounded-control">
                   <div className="text-xs text-muted uppercase">Skipped</div>
                   <div className="text-lg font-bold text-muted">
                     {progress?.skipped_count || 0}
@@ -467,7 +467,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
                               <span
                                 className={`text-xs uppercase font-bold px-1.5 py-0.5 rounded border ${
                                   candidate.confidence === 'High'
-                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                    ? 'bg-success/10 text-success border-success/20'
                                     : candidate.confidence === 'Medium'
                                     ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                                     : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
@@ -478,7 +478,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
 
                               {/* Existing in Library badge */}
                               {candidate.existing_game_id && (
-                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-surface border border-border text-muted">
+                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-surface text-muted">
                                   Already in Library (Will Update)
                                 </span>
                               )}
@@ -555,7 +555,7 @@ export const ScanFolderModal: React.FC<ScanFolderModalProps> = ({
           {/* STAGE 4: Complete */}
           {stage === 'complete' && (
             <div className="py-8 space-y-4 text-center">
-              <div className="inline-flex p-3 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <div className="inline-flex p-3 rounded-full bg-success/10 border border-success/20 text-success">
                 <FolderCheck className="w-10 h-10" />
               </div>
               <h3 className="text-lg font-semibold text-text">Scan Import Complete</h3>

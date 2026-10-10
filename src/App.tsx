@@ -664,7 +664,7 @@ export const App: React.FC = () => {
       )}
 
       {gameToRemove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
           <div className="w-full max-w-md bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
             <div className="flex items-center gap-2.5 text-danger border-b border-border pb-2.5">
               <Trash2 className="w-5 h-5 flex-shrink-0" />

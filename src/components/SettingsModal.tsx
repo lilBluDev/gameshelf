@@ -549,6 +549,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [isOpen, activeSection]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !editingProfile && !testingProfile && !isConfirmingClearPlaytime) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, editingProfile, testingProfile, isConfirmingClearPlaytime]);
+
   if (!isOpen) return null;
 
   const handleSaveSteamPath = async () => {
@@ -627,25 +638,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 select-none">
-      <div className="w-full max-w-3xl h-[560px] bg-surface border border-border rounded-dialog shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        {/* Header */}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 select-none"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !editingProfile && !testingProfile && !isConfirmingClearPlaytime) {
+          onClose();
+        }
+      }}
+    >
+      <div className="w-full max-w-4xl max-h-[88vh] h-[640px] bg-surface border border-muted/20 rounded-dialog shadow-2xl flex flex-col overflow-hidden">
         <div className="h-12 border-b border-border px-5 flex items-center justify-between bg-surface-2/40 flex-shrink-0">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-text">Preferences</h3>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-control text-muted hover:text-text hover:bg-surface-2 transition-colors"
+            aria-label="Close preferences"
+            className="w-7 h-7 flex items-center justify-center rounded-control text-muted hover:text-text hover:bg-surface-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Content Body */}
         <div className="flex flex-1 min-h-0">
-          {/* Sidebar Tabs */}
-          <div className="w-48 bg-surface border-r border-border p-2 space-y-1 flex-shrink-0">
+          <div className="w-48 bg-surface border-r border-border p-2 space-y-0.5 flex-shrink-0">
             {sections.map((sec) => {
               const Icon = sec.icon;
               const isActive = activeSection === sec.id;
@@ -653,10 +669,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   key={sec.id}
                   onClick={() => setActiveSection(sec.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-control text-xs font-medium transition-colors ${
+                  aria-current={isActive ? 'true' : undefined}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-control text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
                     isActive
-                      ? 'bg-accent text-white shadow-sm'
-                      : 'text-text hover:bg-surface-2 hover:text-white'
+                      ? 'bg-surface-2 text-text font-medium relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-accent'
+                      : 'text-muted hover:text-text hover:bg-surface-2/60'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -675,7 +692,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <h4 className="text-sm font-semibold text-text">General Preferences</h4>
                   <p className="text-xs text-muted">Configure basic application behaviors, tray presence, and startup options.</p>
                 </div>
-                <div className="bg-surface-2/40 border border-border rounded-card divide-y divide-border text-xs">
+                <div className="bg-surface-2/20 rounded-card divide-y divide-border/40 text-xs">
                   {/* Launch on Startup */}
                   <div className="p-4 flex items-center justify-between">
                     <div className="space-y-0.5">
@@ -809,7 +826,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <label className="text-xs font-medium text-text">Accent Color</label>
                       <span className="font-mono text-xs text-muted">{settings.accent_color || '#7C6CFF'}</span>
                     </div>
-                    <div className="flex items-center gap-3 bg-surface-2/40 border border-border p-3 rounded-card">
+                    <div className="flex items-center gap-3 bg-surface-2/30 p-3 rounded-card">
                       {[
                         { name: 'GameShelf Violet', value: '#7C6CFF' },
                         { name: 'Cyber Cyan', value: '#00D2FF' },
@@ -937,7 +954,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowAddSourceInput(!showAddSourceInput)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-2 border border-border hover:bg-surface-2/80 text-text text-xs font-medium rounded-control transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-2/80 hover:bg-surface-2 text-text text-xs font-medium rounded-control transition-colors"
                     >
                       <FolderPlus className="w-3.5 h-3.5 text-accent" />
                       <span>{showAddSourceInput ? 'Cancel' : 'Add Root'}</span>
@@ -950,7 +967,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div
                     className={`p-3 rounded-control border text-xs flex items-center justify-between ${
                       sourceMessage.type === 'success'
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                        ? 'bg-success/10 border-success/20 text-success'
                         : 'bg-danger/10 border-danger/20 text-danger'
                     }`}
                   >
@@ -967,7 +984,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Add Source Input Row */}
                 {showAddSourceInput && (
-                  <div className="p-3 bg-surface-2/60 border border-border rounded-card space-y-2 animate-fade-in">
+                  <div className="p-3 bg-surface-2/40 rounded-card space-y-2 animate-fade-in">
                     <label className="text-xs font-medium text-text">Add Folder Scan Root</label>
                     <div className="flex gap-2">
                       <input
@@ -975,7 +992,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         value={newSourcePath}
                         onChange={(e) => setNewSourcePath(e.target.value)}
                         placeholder="e.g. D:\Games or C:\Games\DRMFree"
-                        className="flex-1 bg-surface border border-border rounded-control px-3 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent"
+                        className="flex-1 bg-surface border border-muted/20 rounded-control px-3 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent"
                       />
                       <button
                         type="button"
@@ -996,7 +1013,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       Loading managed scan folders...
                     </div>
                   ) : scanSources.length === 0 ? (
-                    <div className="p-6 bg-surface-2/30 border border-border rounded-card text-center space-y-2">
+                    <div className="p-6 bg-surface-2/20 rounded-card text-center space-y-2">
                       <Folder className="w-8 h-8 text-muted/40 mx-auto" />
                       <div className="text-xs font-medium text-text">No managed scan roots yet</div>
                       <p className="text-xs text-muted max-w-sm mx-auto">
@@ -1007,10 +1024,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     scanSources.map((source) => (
                       <div
                         key={source.id}
-                        className="p-3 bg-surface-2/40 border border-border rounded-card flex items-center justify-between gap-3"
+                        className="p-3 bg-surface-2/30 rounded-card flex items-center justify-between gap-3"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-control bg-surface flex items-center justify-center border border-border text-accent flex-shrink-0">
+                          <div className="w-8 h-8 rounded-control bg-surface-2 flex items-center justify-center text-accent flex-shrink-0">
                             <Folder className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
@@ -1037,7 +1054,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             type="button"
                             disabled={rescanningSourceId === source.id}
                             onClick={() => handleRescanSource(source.id)}
-                            className="flex items-center gap-1.5 px-2.5 py-1 bg-surface border border-border hover:bg-surface-2 text-text text-xs rounded transition-colors"
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-2 text-text hover:bg-surface-2/80 text-xs rounded transition-colors"
                             title="Rescan this directory"
                           >
                             <RefreshCw
@@ -1062,7 +1079,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Exclusions & Protection Notice */}
-                <div className="p-4 bg-surface-2/20 border border-border rounded-card space-y-2">
+                <div className="p-4 bg-surface-2/20 rounded-card space-y-2">
                   <div className="text-xs font-semibold text-text flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-accent" />
                     <span>Built-in Scan Exclusions & Safety</span>
@@ -1084,7 +1101,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     ].map((tag) => (
                       <span
                         key={tag}
-                        className="px-2 py-0.5 rounded bg-surface border border-border text-xs text-muted font-mono"
+                        className="px-2 py-0.5 rounded bg-surface text-xs text-muted font-mono"
                       >
                         {tag}
                       </span>
@@ -1123,7 +1140,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
 
                 {/* Steam Integration Box */}
-                <div className="bg-surface-2/40 border border-border rounded-card p-4 space-y-4">
+                <div className="bg-surface-2/30 rounded-card p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <Flame className="w-5 h-5 text-accent" />
@@ -1137,7 +1154,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {/* Status Badge */}
                     <div>
                       {loadingSteam ? (
-                        <span className="text-xs bg-surface-2 text-muted px-2 py-0.5 rounded border border-border">
+                        <span className="text-xs bg-surface-2 text-muted px-2 py-0.5 rounded">
                           Checking...
                         </span>
                       ) : steamStatus?.is_installed ? (
@@ -1163,7 +1180,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         value={steamPathInput}
                         onChange={(e) => setSteamPathInput(e.target.value)}
                         placeholder="C:\Program Files (x86)\Steam"
-                        className="flex-1 bg-surface border border-border rounded-control px-3 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent"
+                        className="flex-1 bg-surface border border-muted/20 rounded-control px-3 py-1.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent"
                       />
                       <button
                         onClick={handleSaveSteamPath}
@@ -1240,7 +1257,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         {steamStatus.filter_config.rules.map((rule) => (
                           <div
                             key={rule.id}
-                            className="p-2 bg-surface border border-border rounded-control text-xs flex items-start gap-2"
+                            className="p-2 bg-surface-2 rounded-control text-xs flex items-start gap-2"
                           >
                             <input
                               type="checkbox"
@@ -1279,7 +1296,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className="text-xs font-semibold text-text">
                         Filtered Non-Game Items ({skippedApps.length})
                       </div>
-                      <div className="max-h-28 overflow-y-auto space-y-1 border border-border rounded-control p-1.5 bg-surface">
+                      <div className="max-h-28 overflow-y-auto space-y-1 rounded-control p-1.5 bg-surface-2/40">
                         {skippedApps.map((skipped) => (
                           <div
                             key={skipped.app_id}
@@ -1328,10 +1345,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {['Epic Games Store', 'GOG Galaxy', 'Ubisoft Connect', 'EA App'].map((store) => (
                     <div
                       key={store}
-                      className="bg-surface-2/20 border border-border/60 rounded-card p-2.5 flex items-center justify-between opacity-50 cursor-not-allowed"
+                      className="bg-surface-2/20 border border-muted/20 rounded-card p-2.5 flex items-center justify-between opacity-50 cursor-not-allowed"
                     >
                       <div className="text-xs text-muted">{store}</div>
-                      <span className="text-xs bg-surface px-2 py-0.5 rounded border border-border text-muted">
+                      <span className="text-xs bg-surface px-2 py-0.5 rounded text-muted">
                         Not available yet
                       </span>
                     </div>
@@ -1372,7 +1389,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       onClick={handleDetectEmulators}
                       disabled={detectingEmulators}
-                      className="flex items-center gap-1.5 bg-surface border border-border hover:bg-surface-2 text-text rounded-control px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
+                      className="flex items-center gap-1.5 bg-surface-2 text-text hover:bg-surface-2/80 rounded-control px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
                       title="Scan standard install paths, Start Menu shortcuts, and PATH"
                     >
                       <RotateCw
@@ -1396,7 +1413,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span>Loading emulator profiles...</span>
                   </div>
                 ) : emulatorProfiles.length === 0 ? (
-                  <div className="bg-surface-2/40 border border-border rounded-card p-6 text-center text-xs text-muted">
+                  <div className="bg-surface-2/30 rounded-card p-6 text-center text-xs text-muted">
                     No emulator profiles found. Click &ldquo;Auto-Detect&rdquo; or &ldquo;Add Profile&rdquo;.
                   </div>
                 ) : (
@@ -1410,11 +1427,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       return (
                         <div
                           key={p.id}
-                          className="bg-surface-2/40 border border-border rounded-card p-4 space-y-3 hover:border-border/80 transition-colors"
+                          className="bg-surface-2/30 rounded-card p-4 space-y-3 hover: transition-colors"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3">
-                              <div className="w-8 h-8 rounded-control bg-surface border border-border flex items-center justify-center text-accent mt-0.5">
+                              <div className="w-8 h-8 rounded-control bg-surface flex items-center justify-center text-accent mt-0.5">
                                 <Cpu className="w-4 h-4" />
                               </div>
                               <div>
@@ -1425,7 +1442,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       Built-in
                                     </span>
                                   ) : (
-                                    <span className="text-xs bg-surface text-muted border border-border px-1.5 py-0.2 rounded font-medium">
+                                    <span className="text-xs bg-surface text-muted px-1.5 py-0.2 rounded font-medium">
                                       Custom
                                     </span>
                                   )}
@@ -1446,7 +1463,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   {p.systems.map((sys) => (
                                     <span
                                       key={sys}
-                                      className="text-xs bg-surface px-1.5 py-0.5 rounded border border-border text-muted"
+                                      className="text-xs bg-surface px-1.5 py-0.5 rounded text-muted"
                                     >
                                       {sys}
                                     </span>
@@ -1487,7 +1504,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </div>
 
                           {/* Path Details */}
-                          <div className="space-y-1 bg-surface/60 rounded p-2.5 border border-border/50 text-xs font-mono">
+                          <div className="space-y-1 bg-surface/60 rounded p-2.5 border border-muted/20 text-xs font-mono">
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-muted font-sans text-xs">Executable:</span>
                               <span
@@ -1533,7 +1550,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     onClose();
                                     onOpenScanRoms(p.id);
                                   }}
-                                  className="flex items-center gap-1 bg-surface border border-border hover:bg-surface-2 text-text px-2.5 py-1 rounded text-xs transition-colors"
+                                  className="flex items-center gap-1 bg-surface-2 text-text hover:bg-surface-2/80 px-2.5 py-1 rounded text-xs transition-colors"
                                   title="Scan a ROM folder with this emulator profile"
                                 >
                                   <Disc className="w-3 h-3 text-accent" />
@@ -1543,7 +1560,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               <button
                                 onClick={() => handleOpenTestLaunch(p)}
                                 disabled={!p.executable_path}
-                                className="flex items-center gap-1 bg-surface border border-border hover:bg-surface-2 text-text px-2.5 py-1 rounded text-xs transition-colors disabled:opacity-40"
+                                className="flex items-center gap-1 bg-surface-2 text-text hover:bg-surface-2/80 px-2.5 py-1 rounded text-xs transition-colors disabled:opacity-40"
                                 title="Run test launch with a dummy or sample ROM file"
                               >
                                 <Play className="w-3 h-3 text-accent" />
@@ -1551,7 +1568,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               </button>
                               <button
                                 onClick={() => handleOpenEditProfile(p)}
-                                className="flex items-center gap-1 bg-surface border border-border hover:bg-surface-2 text-text px-2.5 py-1 rounded text-xs transition-colors"
+                                className="flex items-center gap-1 bg-surface-2 text-text hover:bg-surface-2/80 px-2.5 py-1 rounded text-xs transition-colors"
                               >
                                 <Edit2 className="w-3 h-3 text-muted" />
                                 <span>Configure</span>
@@ -1575,8 +1592,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Edit Profile Dialog Modal */}
                 {editingProfile && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-                    <div className="bg-surface border border-border rounded-dialog shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+                    <div className="bg-surface border border-muted/20 rounded-dialog shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
                       <div className="flex items-center justify-between border-b border-border pb-3">
                         <div className="flex items-center gap-2">
                           <Cpu className="w-4 h-4 text-accent" />
@@ -1601,7 +1618,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
                             placeholder="e.g. RetroArch, DuckStation, PCSX2"
-                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text focus:outline-none focus:border-accent"
+                            className="w-full bg-surface-2 border border-muted/20 rounded-control px-3 py-1.5 text-text focus:outline-none focus:border-accent"
                           />
                         </div>
 
@@ -1613,7 +1630,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             value={editSystems}
                             onChange={(e) => setEditSystems(e.target.value)}
                             placeholder="e.g. PlayStation, PlayStation 2 (comma-separated)"
-                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text focus:outline-none focus:border-accent"
+                            className="w-full bg-surface-2 border border-muted/20 rounded-control px-3 py-1.5 text-text focus:outline-none focus:border-accent"
                           />
                         </div>
 
@@ -1625,7 +1642,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             value={editExtensions}
                             onChange={(e) => setEditExtensions(e.target.value)}
                             placeholder=".iso, .bin, .cue, .chd (comma-separated)"
-                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
+                            className="w-full bg-surface-2 border border-muted/20 rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
                           />
                         </div>
 
@@ -1637,7 +1654,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             value={editExecutablePath}
                             onChange={(e) => setEditExecutablePath(e.target.value)}
                             placeholder="C:\Emulators\RetroArch\retroarch.exe"
-                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
+                            className="w-full bg-surface-2 border border-muted/20 rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
                           />
                         </div>
 
@@ -1651,7 +1668,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             value={editCorePath}
                             onChange={(e) => setEditCorePath(e.target.value)}
                             placeholder="C:\Emulators\RetroArch\cores\beetle_psx_libretro.dll"
-                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
+                            className="w-full bg-surface-2 border border-muted/20 rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
                           />
                         </div>
 
@@ -1666,7 +1683,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             value={editTemplate}
                             onChange={(e) => setEditTemplate(e.target.value)}
                             placeholder='["-batch", "{rom}"] or -batch {rom}'
-                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
+                            className="w-full bg-surface-2 border border-muted/20 rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
                           />
                           {/* Helper placeholder chips */}
                           <div className="flex items-center gap-1.5 flex-wrap pt-1">
@@ -1685,7 +1702,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       );
                                     }
                                   }}
-                                  className="text-xs bg-surface hover:bg-surface-2 border border-border text-accent px-1.5 py-0.5 rounded font-mono"
+                                  className="text-xs bg-surface-2 hover:bg-surface-2/80 text-accent px-1.5 py-0.5 rounded font-mono"
                                 >
                                   {ph}
                                 </button>
@@ -1738,7 +1755,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               value={editCustomWorkingDir}
                               onChange={(e) => setEditCustomWorkingDir(e.target.value)}
                               placeholder="C:\Emulators\WorkingDir"
-                              className="w-full bg-surface-2 border border-border rounded-control px-3 py-1 text-text font-mono mt-1 focus:outline-none"
+                              className="w-full bg-surface-2 border border-muted/20 rounded-control px-3 py-1 text-text font-mono mt-1 focus:outline-none"
                             />
                           )}
                         </div>
@@ -1768,8 +1785,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Test Launch Modal Dialog */}
                 {testingProfile && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-                    <div className="bg-surface border border-border rounded-dialog shadow-2xl w-full max-w-md p-5 space-y-4">
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+                    <div className="bg-surface border border-muted/20 rounded-dialog shadow-2xl w-full max-w-md p-5 space-y-4">
                       <div className="flex items-center justify-between border-b border-border pb-3">
                         <div className="flex items-center gap-2">
                           <Play className="w-4 h-4 text-accent" />
@@ -1798,7 +1815,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             value={testFilePath}
                             onChange={(e) => setTestFilePath(e.target.value)}
                             placeholder="C:\Games\ROMs\test_game.iso"
-                            className="w-full bg-surface-2 border border-border rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
+                            className="w-full bg-surface-2 border border-muted/20 rounded-control px-3 py-1.5 text-text font-mono focus:outline-none focus:border-accent"
                           />
                         </div>
 
@@ -1875,7 +1892,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
 
                 {/* SteamGridDB API Key Card */}
-                <div className="bg-surface-2/40 border border-border rounded-card p-5 space-y-4">
+                <div className="bg-surface-2/30 rounded-card p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <Key className="w-4 h-4 text-accent" />
@@ -1893,7 +1910,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <Check className="w-3 h-3" /> Configured
                         </span>
                       ) : (
-                        <span className="text-xs text-muted bg-surface-2 border border-border rounded px-2 py-0.5">
+                        <span className="text-xs text-muted bg-surface-2 rounded px-2 py-0.5">
                           Not configured
                         </span>
                       )}
@@ -1963,7 +1980,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Artwork Cache Management Card */}
-                <div className="bg-surface-2/40 border border-border rounded-card p-5 space-y-4">
+                <div className="bg-surface-2/30 rounded-card p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <HardDrive className="w-4 h-4 text-accent" />
@@ -1985,7 +2002,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                  <div className="flex items-center justify-between pt-1 border-t ">
                     <p className="text-xs text-muted max-w-md">
                       Clearing the cache removes downloaded image files to reclaim disk space. User-selected local images
                       in custom paths are preserved.
@@ -2003,7 +2020,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Fallbacks & Privacy notice */}
-                <div className="rounded-control bg-surface-2/20 border border-border/60 p-4 space-y-2 text-xs text-muted">
+                <div className="rounded-control bg-surface-2/20 border border-muted/20 p-4 space-y-2 text-xs text-muted">
                   <div className="flex items-center gap-1.5 font-medium text-text">
                     <ShieldCheck className="w-3.5 h-3.5 text-accent" />
                     <span>Fallbacks &amp; Privacy Statement</span>
@@ -2043,7 +2060,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       onClick={handleOpenLogs}
                       disabled={openingLogs}
                       title="Reveal logs folder in Windows File Explorer"
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border hover:bg-surface-2 text-text text-xs font-medium rounded-control transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-2 text-text hover:bg-surface-2/80 text-xs font-medium rounded-control transition-colors disabled:opacity-50"
                     >
                       <FolderOpen className="w-3.5 h-3.5 text-accent" />
                       <span>{openingLogs ? 'Opening...' : 'Open Logs Folder'}</span>
@@ -2070,7 +2087,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                <div className="bg-surface-2/40 border border-border rounded-card divide-y divide-border text-xs">
+                <div className="bg-surface-2/20 rounded-card divide-y divide-border/40 text-xs">
                   <div className="p-3 flex items-center justify-between">
                     <span className="text-muted">Host Environment</span>
                     <span className="font-mono text-text">{appInfo?.os || 'Windows (Host)'}</span>
@@ -2105,19 +2122,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {diagSummaryText && (
-                  <div className="bg-surface-2/60 border border-border rounded-card p-3 space-y-1.5">
+                  <div className="bg-surface-2/40 rounded-card p-3 space-y-1.5">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-text">
                       <FileText className="w-3.5 h-3.5 text-accent" />
                       <span>Sanitized Diagnostic Summary</span>
                     </div>
-                    <pre className="text-xs font-mono text-muted bg-surface/70 p-2.5 rounded border border-border/50 whitespace-pre-wrap max-h-36 overflow-y-auto">
+                    <pre className="text-xs font-mono text-muted bg-surface/70 p-2.5 rounded border border-muted/20 whitespace-pre-wrap max-h-36 overflow-y-auto">
                       {diagSummaryText}
                     </pre>
                   </div>
                 )}
 
                 {/* Privacy Notice */}
-                <div className="bg-surface-2/20 border border-border rounded-card p-3.5 space-y-1.5">
+                <div className="bg-surface-2/20 rounded-card p-3.5 space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-text">
                     <ShieldCheck className="w-4 h-4 text-success" />
                     <span>Privacy Notice</span>
@@ -2134,8 +2151,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       </div>
 
       {isConfirmingClearPlaytime && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-100">
-          <div className="w-full max-w-sm bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+          <div className="w-full max-w-sm bg-surface border border-muted/20 rounded-dialog shadow-2xl p-5 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-danger/20 border border-danger/40 flex items-center justify-center text-danger flex-shrink-0">
                 <Trash2 className="w-4 h-4" />
@@ -2152,7 +2169,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 type="button"
                 onClick={() => setIsConfirmingClearPlaytime(false)}
                 disabled={isClearingPlaytime}
-                className="px-3 py-1.5 rounded-control bg-surface-2 hover:bg-surface-2/80 border border-border text-xs font-medium text-text transition-colors"
+                className="px-3 py-1.5 rounded-control bg-surface-2 hover:bg-surface-2/80 text-xs font-medium text-text transition-colors"
               >
                 Cancel
               </button>

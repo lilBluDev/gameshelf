@@ -29,7 +29,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         {onClearSearch && (
           <button
             onClick={onClearSearch}
-            className="px-3.5 py-1.5 rounded-control bg-surface-2 border border-border text-xs text-text hover:bg-border transition-colors font-medium"
+            className="px-3.5 py-1.5 rounded-control bg-surface-2 text-xs text-text hover:bg-border transition-colors font-medium"
           >
             Clear Filters
           </button>
@@ -62,7 +62,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         {onOpenScanRoms && (
           <button
             onClick={onOpenScanRoms}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-control bg-surface border border-border hover:bg-surface-2 text-text text-xs font-medium transition-all"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-control bg-surface hover:bg-surface-2 text-text text-xs font-medium transition-all"
           >
             <Disc className="w-4 h-4 text-accent" />
             <span>Scan for ROMs</span>
@@ -71,7 +71,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         {onOpenAddGame && (
           <button
             onClick={onOpenAddGame}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-control bg-surface border border-border hover:bg-surface-2 text-text text-xs font-medium transition-all"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 rounded-control bg-surface hover:bg-surface-2 text-text text-xs font-medium transition-all"
           >
             <Plus className="w-4 h-4" />
             <span>Add Single Game</span>

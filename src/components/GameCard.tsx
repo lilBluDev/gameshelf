@@ -85,12 +85,12 @@ export const GameCard: React.FC<GameCardProps> = ({
         className={`flex items-center justify-between px-3 py-2 rounded-control border transition-colors cursor-pointer select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
           isSelected
             ? 'bg-surface-2 border-accent/80 ring-1 ring-accent/60'
-            : 'bg-surface border-border/60 hover:bg-surface-2/60 hover:border-border'
+            : 'bg-surface  hover:bg-surface-2/60 hover:border-border'
         }`}
       >
         <div className="flex items-center gap-3 min-w-0 flex-1 mr-4">
           <div
-            className="w-8 h-11 rounded-[4px] overflow-hidden flex-shrink-0 flex items-center justify-center font-medium text-text/80 text-xs bg-surface-2 border border-border/60"
+            className="w-8 h-11 rounded-[4px] overflow-hidden flex-shrink-0 flex items-center justify-center font-medium text-text/80 text-xs bg-surface-2 "
             style={{ background: coverSrc ? undefined : gradient }}
           >
             {coverSrc ? (
@@ -157,7 +157,7 @@ export const GameCard: React.FC<GameCardProps> = ({
       className={`group relative rounded-card overflow-hidden transition-all cursor-pointer flex flex-col focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent select-none ${
         isSelected
           ? 'ring-1 ring-accent border border-accent bg-surface-2/40'
-          : 'border border-border/40 hover:border-border/80 bg-surface/40 hover:bg-surface'
+          : 'border border-muted/20 hover: bg-surface/40 hover:bg-surface'
       }`}
     >
       <div
@@ -187,13 +187,13 @@ export const GameCard: React.FC<GameCardProps> = ({
               <span>Missing</span>
             </div>
           ) : (
-            <div className="bg-surface/90 px-1.5 py-0.5 rounded-[4px] text-xs text-muted border border-border/60 flex items-center gap-1">
+            <div className="bg-surface/90 px-1.5 py-0.5 rounded-[4px] text-xs text-muted  flex items-center gap-1">
               {getSourceIcon()}
               <span>{game.source_kind}</span>
             </div>
           )}
           {game.is_favorite && (
-            <div className="bg-surface/90 p-1 rounded-[4px] text-danger border border-border/60">
+            <div className="bg-surface/90 p-1 rounded-[4px] text-danger ">
               <Heart className="w-3 h-3 fill-danger text-danger" />
             </div>
           )}
