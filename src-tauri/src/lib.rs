@@ -9,6 +9,7 @@ pub mod logging;
 pub mod metadata;
 pub mod platform;
 pub mod scanner;
+pub mod tray;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -24,11 +25,19 @@ pub struct AppState {
     pub log_dir: PathBuf,
     pub scan_cancel_flag: Arc<std::sync::atomic::AtomicBool>,
     pub artwork_cache: Arc<ArtworkCache>,
+    pub tray_available: Arc<std::sync::atomic::AtomicBool>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .setup(|app| {
             // Resolve app-specific data and log directories
             let data_dir = app
@@ -59,6 +68,11 @@ pub fn run() {
             let db = Database::new(&db_path)?;
             let scan_cancel_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
             let artwork_cache = Arc::new(ArtworkCache::new(data_dir.join("artwork"))?);
+            let tray_available = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+            if let Err(e) = tray::setup_tray(app.handle(), tray_available.clone()) {
+                tracing::warn!("Failed to setup system tray: {}", e);
+            }
 
             app.manage(AppState {
                 db,
@@ -66,10 +80,61 @@ pub fn run() {
                 log_dir,
                 scan_cancel_flag,
                 artwork_cache,
+                tray_available,
             });
 
             info!("GameShelf backend setup completed successfully");
             Ok(())
+        })
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
+                let app = window.app_handle();
+                let state = app.state::<AppState>();
+                let close_to_tray = state
+                    .db
+                    .get_setting("close_to_tray")
+                    .unwrap_or(None)
+                    .map(|v| v == "true" || v == "1")
+                    .unwrap_or(false);
+                let tray_available = state
+                    .tray_available
+                    .load(std::sync::atomic::Ordering::SeqCst);
+                if tray::evaluate_window_action(
+                    tray::WindowAction::Close,
+                    close_to_tray,
+                    false,
+                    tray_available,
+                ) == tray::TrayDecision::HideToTray
+                {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+            tauri::WindowEvent::Resized(_) => {
+                if let Ok(true) = window.is_minimized() {
+                    let app = window.app_handle();
+                    let state = app.state::<AppState>();
+                    let minimize_to_tray = state
+                        .db
+                        .get_setting("minimize_to_tray")
+                        .unwrap_or(None)
+                        .map(|v| v == "true" || v == "1")
+                        .unwrap_or(false);
+                    let tray_available = state
+                        .tray_available
+                        .load(std::sync::atomic::Ordering::SeqCst);
+                    if tray::evaluate_window_action(
+                        tray::WindowAction::Minimize,
+                        false,
+                        minimize_to_tray,
+                        tray_available,
+                    ) == tray::TrayDecision::HideToTray
+                    {
+                        let _ = window.hide();
+                    }
+                }
+            }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             commands::app::get_app_info,
