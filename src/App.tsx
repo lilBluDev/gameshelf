@@ -2,9 +2,9 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { TitleBar } from './components/TitleBar';
 import { Sidebar, NavFilter } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
-import { GameCard } from './components/GameCard';
 import { GameDetailPanel } from './components/GameDetailPanel';
 import { EmptyState } from './components/EmptyState';
+import { VirtualizedLibrary } from './components/VirtualizedLibrary';
 import { SettingsModal } from './components/SettingsModal';
 import { AddGameModal } from './components/AddGameModal';
 import { ScanFolderModal } from './components/ScanFolderModal';
@@ -38,7 +38,6 @@ export const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('title');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [renderLimit, setRenderLimit] = useState(60);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
@@ -298,35 +297,6 @@ export const App: React.FC = () => {
     return result;
   }, [games, activeFilter, searchQuery, sortBy]);
 
-  // Reset windowed rendering on search / filter / sort change
-  useEffect(() => {
-    setRenderLimit(60);
-  }, [searchQuery, activeFilter, sortBy]);
-
-  const handleScroll = (e: React.UIEvent<HTMLElement>) => {
-    const target = e.currentTarget;
-    if (target.scrollHeight - target.scrollTop - target.clientHeight < 350) {
-      setRenderLimit((prev) => Math.min(prev + 40, visibleGames.length));
-    }
-  };
-
-  const renderedGames = useMemo(() => {
-    return visibleGames.slice(0, renderLimit);
-  }, [visibleGames, renderLimit]);
-
-  // Dynamic grid column sizing based on settings.grid_card_size
-  const gridClasses = useMemo(() => {
-    switch (settings.grid_card_size) {
-      case 'small':
-        return 'grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3';
-      case 'large':
-        return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5';
-      case 'medium':
-      default:
-        return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4';
-    }
-  }, [settings.grid_card_size]);
-
   // Count games by category for real sidebar badges
   const counts = useMemo(() => {
     return {
@@ -391,13 +361,14 @@ export const App: React.FC = () => {
             onOpenScanRoms={() => handleOpenScanRoms()}
           />
 
-          {/* Games Display Area */}
-          <main className="flex-1 overflow-y-auto p-6" onScroll={handleScroll}>
-            {loading ? (
+          {loading ? (
+            <main className="flex-1 overflow-y-auto p-6">
               <div className="flex items-center justify-center h-full text-xs text-muted">
                 Loading library...
               </div>
-            ) : visibleGames.length === 0 ? (
+            </main>
+          ) : visibleGames.length === 0 ? (
+            <main className="flex-1 overflow-y-auto p-6">
               <EmptyState
                 isSearch={searchQuery.length > 0 || activeFilter !== 'all'}
                 onClearSearch={() => {
@@ -408,44 +379,17 @@ export const App: React.FC = () => {
                 onOpenScanFolder={() => handleOpenScanFolder()}
                 onOpenScanRoms={() => handleOpenScanRoms()}
               />
-            ) : viewMode === 'grid' ? (
-              <div className={gridClasses}>
-                {renderedGames.map((game) => (
-                  <GameCard
-                    key={game.id}
-                    game={game}
-                    isSelected={selectedGame?.id === game.id}
-                    onSelect={setSelectedGame}
-                    viewMode="grid"
-                    playtimeTrackingEnabled={Boolean(settings.playtime_tracking_enabled)}
-                  />
-                ))}
-                {renderLimit < visibleGames.length && (
-                  <div className="col-span-full py-3 text-center text-xs text-muted font-mono">
-                    Showing {renderedGames.length} of {visibleGames.length} games
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2 max-w-4xl mx-auto">
-                {renderedGames.map((game) => (
-                  <GameCard
-                    key={game.id}
-                    game={game}
-                    isSelected={selectedGame?.id === game.id}
-                    onSelect={setSelectedGame}
-                    viewMode="list"
-                    playtimeTrackingEnabled={Boolean(settings.playtime_tracking_enabled)}
-                  />
-                ))}
-                {renderLimit < visibleGames.length && (
-                  <div className="py-3 text-center text-xs text-muted font-mono">
-                    Showing {renderedGames.length} of {visibleGames.length} games
-                  </div>
-                )}
-              </div>
-            )}
-          </main>
+            </main>
+          ) : (
+            <VirtualizedLibrary
+              games={visibleGames}
+              viewMode={viewMode}
+              cardSize={settings.grid_card_size || 'medium'}
+              selectedGame={selectedGame}
+              onSelectGame={setSelectedGame}
+              playtimeTrackingEnabled={Boolean(settings.playtime_tracking_enabled)}
+            />
+          )}
         </div>
 
         {/* Right Detail Inspection Panel */}

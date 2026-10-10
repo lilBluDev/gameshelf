@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
+import { render, fireEvent, act } from '@testing-library/react';
 import { Game } from '../types/models';
+import { VirtualizedLibrary } from '../components/VirtualizedLibrary';
 
-function generate1000SyntheticFrontendGames(): Game[] {
+function generateSyntheticGames(count: number): Game[] {
   const games: Game[] = [];
   const titles = ['Cyber', 'Fantasy', 'Shadow', 'Quest', 'Warrior', 'Odyssey', 'Dark', 'Star', 'Mega', 'Zero'];
 
-  for (let i = 1; i <= 1000; i++) {
+  for (let i = 1; i <= count; i++) {
     const word = titles[i % titles.length];
     games.push({
       id: `synth-${i}`,
@@ -31,7 +33,7 @@ function generate1000SyntheticFrontendGames(): Game[] {
 }
 
 describe('Frontend 1,000 Games Performance Benchmark', () => {
-  const games = generate1000SyntheticFrontendGames();
+  const games = generateSyntheticGames(1000);
 
   it('verifies 1,000 games dataset generation', () => {
     expect(games.length).toBe(1000);
@@ -49,7 +51,7 @@ describe('Frontend 1,000 Games Performance Benchmark', () => {
     const searchLatency = performance.now() - t0;
 
     expect(filtered.length).toBe(100);
-    expect(searchLatency).toBeLessThan(15); // Sub-15ms search across 1,000 items
+    expect(searchLatency).toBeLessThan(15);
     console.log(`[FRONTEND BENCHMARK] Filtered 1,000 games for "${q}" in ${searchLatency.toFixed(2)}ms`);
   });
 
@@ -59,18 +61,49 @@ describe('Frontend 1,000 Games Performance Benchmark', () => {
     const sortLatency = performance.now() - t0;
 
     expect(sorted.length).toBe(1000);
-    expect(sortLatency).toBeLessThan(60); // Fast sorting across 1,000 items
+    expect(sortLatency).toBeLessThan(60);
     console.log(`[FRONTEND BENCHMARK] Sorted 1,000 games by sort_title in ${sortLatency.toFixed(2)}ms`);
   });
 
-  it('measures windowed rendering slice efficiency', () => {
-    const windowSize = 60;
-    const t0 = performance.now();
-    const windowSlice = games.slice(0, windowSize);
-    const sliceLatency = performance.now() - t0;
+  it('mounts 5,000 synthetic games with bounded DOM card count before and after scroll', async () => {
+    const games5k = generateSyntheticGames(5000);
+    expect(games5k.length).toBe(5000);
 
-    expect(windowSlice.length).toBe(windowSize);
-    expect(sliceLatency).toBeLessThan(1); // Near-instantaneous slice
-    console.log(`[FRONTEND BENCHMARK] Window slice of ${windowSize} items extracted in ${sliceLatency.toFixed(3)}ms`);
+    const { container } = render(
+      <VirtualizedLibrary
+        games={games5k}
+        viewMode="grid"
+        cardSize="medium"
+        selectedGame={null}
+        onSelectGame={() => {}}
+        playtimeTrackingEnabled={false}
+      />
+    );
+
+    const scrollContainer = container.querySelector('[data-testid="virtualized-scroll-container"]') as HTMLDivElement;
+    expect(scrollContainer).toBeTruthy();
+
+    const initialCards = container.querySelectorAll('[data-testid="game-card"]');
+    const initialCount = initialCards.length;
+    console.log(`[DOM BENCHMARK] Initial 5,000 games rendered card count: ${initialCount}`);
+
+    expect(initialCount).toBeGreaterThan(0);
+    expect(initialCount).toBeLessThan(60);
+
+    const totalContainer = container.querySelector('[data-testid="virtual-total-container"]') as HTMLDivElement;
+    const totalHeight = parseFloat(totalContainer.style.height || '0');
+    expect(totalHeight).toBeGreaterThan(100000);
+
+    await act(async () => {
+      scrollContainer.scrollTop = totalHeight - 800;
+      fireEvent.scroll(scrollContainer);
+    });
+
+    const scrolledCards = container.querySelectorAll('[data-testid="game-card"]');
+    const scrolledCount = scrolledCards.length;
+    console.log(`[DOM BENCHMARK] Scrolled-to-end 5,000 games rendered card count: ${scrolledCount}`);
+
+    expect(scrolledCount).toBeGreaterThan(0);
+    expect(scrolledCount).toBeLessThan(60);
   });
 });

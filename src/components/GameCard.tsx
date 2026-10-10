@@ -46,6 +46,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   if (viewMode === 'list') {
     return (
       <div
+        data-testid="game-card"
         onClick={() => onSelect(game)}
         className={`flex items-center justify-between p-3 rounded-card border transition-all cursor-pointer ${
           isSelected
@@ -113,6 +114,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   // Grid View (2:3 aspect ratio card)
   return (
     <div
+      data-testid="game-card"
       onClick={() => onSelect(game)}
       className={`group relative rounded-card overflow-hidden border transition-all duration-150 cursor-pointer flex flex-col ${
         isSelected
