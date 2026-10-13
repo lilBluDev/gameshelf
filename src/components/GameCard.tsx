@@ -82,10 +82,10 @@ export const GameCard: React.FC<GameCardProps> = ({
         onClick={() => onSelect(game)}
         onContextMenu={handleContextMenu}
         onKeyDown={handleKeyDown}
-        className={`flex items-center justify-between px-3 py-2 rounded-control border transition-colors cursor-pointer select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+        className={`flex items-center justify-between px-3 py-2 rounded-control border transition-all duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
           isSelected
-            ? 'bg-surface-2 border-accent/80 ring-1 ring-accent/60'
-            : 'bg-surface  hover:bg-surface-2/60 hover:border-border'
+            ? 'bg-surface-2 border-accent/80 ring-1 ring-accent/60 shadow-xs'
+            : 'bg-surface border-border hover:bg-surface-2/60 hover:border-muted/40 hover:translate-x-0.5'
         }`}
       >
         <div className="flex items-center gap-3 min-w-0 flex-1 mr-4">
@@ -97,7 +97,7 @@ export const GameCard: React.FC<GameCardProps> = ({
               <img
                 src={coverSrc}
                 alt={game.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                 onError={() => setImgError(true)}
                 loading="lazy"
               />
@@ -154,10 +154,10 @@ export const GameCard: React.FC<GameCardProps> = ({
       onClick={() => onSelect(game)}
       onContextMenu={handleContextMenu}
       onKeyDown={handleKeyDown}
-      className={`group relative rounded-card overflow-hidden transition-all cursor-pointer flex flex-col focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent select-none ${
+      className={`group relative rounded-card overflow-hidden transition-all duration-200 ease-out cursor-pointer flex flex-col focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent select-none ${
         isSelected
-          ? 'ring-1 ring-accent border border-accent bg-surface-2/40'
-          : 'border border-muted/20 hover: bg-surface/40 hover:bg-surface'
+          ? 'ring-1 ring-accent border border-accent bg-surface-2/60 shadow-card-hover -translate-y-1'
+          : 'border border-border/70 hover:border-accent/40 bg-surface hover:bg-surface-2/40 hover:-translate-y-1 hover:shadow-card-hover'
       }`}
     >
       <div
@@ -168,7 +168,7 @@ export const GameCard: React.FC<GameCardProps> = ({
           <img
             src={coverSrc}
             alt={game.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105"
             onError={() => setImgError(true)}
             loading="lazy"
           />

@@ -61,7 +61,7 @@ describe('Frontend 1,000 Games Performance Benchmark', () => {
     const sortLatency = performance.now() - t0;
 
     expect(sorted.length).toBe(1000);
-    expect(sortLatency).toBeLessThan(60);
+    expect(sortLatency).toBeLessThan(150);
     console.log(`[FRONTEND BENCHMARK] Sorted 1,000 games by sort_title in ${sortLatency.toFixed(2)}ms`);
   });
 

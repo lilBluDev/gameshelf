@@ -186,12 +186,12 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="artwork-modal-title"
     >
-      <div className="flex h-[88vh] w-full max-w-5xl flex-col rounded-dialog border border-border bg-surface shadow-2xl">
+      <div className="flex h-[88vh] w-full max-w-5xl flex-col rounded-dialog border border-border bg-surface shadow-2xl animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-3">

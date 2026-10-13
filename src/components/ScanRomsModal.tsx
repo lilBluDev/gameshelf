@@ -187,9 +187,9 @@ export const ScanRomsModal: React.FC<ScanRomsModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Scan & Import ROMs"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade-in"
     >
-      <div className="bg-surface border border-border rounded-dialog shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-surface border border-border rounded-dialog shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-2/40">
           <div className="flex items-center gap-3">

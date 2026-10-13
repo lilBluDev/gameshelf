@@ -87,7 +87,7 @@ export const DialogShell: React.FC<DialogShellProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 bg-black/70 flex items-center justify-center p-4 sm:p-6 ${zIndexClassName}`}
+      className={`fixed inset-0 bg-black/70 flex items-center justify-center p-4 sm:p-6 animate-fade-in ${zIndexClassName}`}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -102,7 +102,7 @@ export const DialogShell: React.FC<DialogShellProps> = ({
         aria-labelledby="dialog-shell-title"
         aria-describedby={description ? 'dialog-shell-desc' : undefined}
         tabIndex={-1}
-        className={`bg-surface border border-border rounded-dialog shadow-2xl flex flex-col w-full max-h-[88vh] overflow-hidden ${maxWidthClassName}`}
+        className={`bg-surface border border-border rounded-dialog shadow-2xl flex flex-col w-full max-h-[88vh] overflow-hidden animate-scale-in ${maxWidthClassName}`}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0 bg-surface">
           <div>

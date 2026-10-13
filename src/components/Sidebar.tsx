@@ -123,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={item.id}
                   onClick={() => onSelectFilter(item.id)}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`w-full flex items-center justify-between px-2.5 h-9 rounded-control text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  className={`w-full flex items-center justify-between px-2.5 h-9 rounded-control text-xs transition-all duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                     isActive
                       ? 'bg-surface-2 text-text font-medium relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-accent'
                       : 'text-muted hover:text-text hover:bg-surface-2/60'
@@ -157,7 +157,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={item.id}
                   onClick={() => onSelectFilter(item.id)}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`w-full flex items-center justify-between px-2.5 h-9 rounded-control text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  className={`w-full flex items-center justify-between px-2.5 h-9 rounded-control text-xs transition-all duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                     isActive
                       ? 'bg-surface-2 text-text font-medium relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-accent'
                       : 'text-muted hover:text-text hover:bg-surface-2/60'
@@ -182,7 +182,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-2.5 border-t border-border space-y-1">
         <button
           onClick={onOpenSettings}
-          className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-control text-xs font-medium text-muted hover:text-text hover:bg-surface-2/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-control text-xs font-medium text-muted hover:text-text hover:bg-surface-2/60 transition-all duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <SettingsIcon className="w-4 h-4" />
           <span>Settings</span>

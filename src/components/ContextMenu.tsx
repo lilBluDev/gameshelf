@@ -184,7 +184,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         left: position.left,
         zIndex: 9999,
       }}
-      className="min-w-[190px] py-1.5 rounded-card bg-surface-2 border border-border shadow-2xl text-text text-xs focus:outline-none select-none transition-none"
+      className="min-w-[190px] py-1.5 rounded-card bg-surface-2 border border-border shadow-2xl text-text text-xs focus:outline-none select-none animate-scale-in"
     >
       {entries.map((entry) => {
         if (entry.type === 'separator') {

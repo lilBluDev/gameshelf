@@ -25,7 +25,7 @@ export const ToastContainer: React.FC<ToastProps> = ({ toasts, onDismiss }) => {
         return (
           <div
             key={t.id}
-            className={`pointer-events-auto p-3 rounded-card border shadow-xl flex items-start gap-3 bg-surface transition-all animate-in slide-in-from-bottom-2 ${
+            className={`pointer-events-auto p-3 rounded-card border shadow-xl flex items-start gap-3 bg-surface transition-all animate-slide-in-bottom ${
               isError
                 ? 'border-danger/50 text-danger'
                 : isSuccess

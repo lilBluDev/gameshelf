@@ -59,7 +59,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           onChange={(e) => setLocalQuery(e.target.value)}
           placeholder="Search library..."
           aria-label="Search library"
-          className="w-full bg-surface-2/60  rounded-control pl-8.5 pr-7 py-1 text-xs text-text placeholder-muted/80 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors"
+          className="w-full bg-surface-2/60 border border-border rounded-control pl-8.5 pr-7 py-1 text-xs text-text placeholder-muted/80 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors"
         />
         {localQuery && (
           <button
@@ -80,7 +80,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         <div className="h-3.5 w-px bg-border/80" />
 
-        <div className="flex items-center gap-1.5 bg-surface-2/60  rounded-control px-2 py-1 text-xs text-text focus-within:border-accent focus-within:ring-1 focus-within:ring-accent">
+        <div className="flex items-center gap-1.5 bg-surface-2/60 border border-border rounded-control px-2 py-1 text-xs text-text focus-within:border-accent focus-within:ring-1 focus-within:ring-accent">
           <ArrowUpDown className="w-3 h-3 text-muted" />
           <span className="text-muted text-xs">Sort:</span>
           <select
@@ -100,7 +100,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           </select>
         </div>
 
-        <div className="flex items-center bg-surface-2/60  rounded-control p-0.5" role="group" aria-label="View layout mode">
+        <div className="flex items-center bg-surface-2/60 border border-border rounded-control p-0.5" role="group" aria-label="View layout mode">
           <button
             onClick={() => onViewModeChange('grid')}
             title="Grid View"
@@ -108,7 +108,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             aria-pressed={viewMode === 'grid'}
             className={`p-1 rounded-[6px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
               viewMode === 'grid'
-                ? 'bg-surface text-text shadow-xs '
+                ? 'bg-surface text-text shadow-xs'
                 : 'text-muted hover:text-text'
             }`}
           >
@@ -121,7 +121,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             aria-pressed={viewMode === 'list'}
             className={`p-1 rounded-[6px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
               viewMode === 'list'
-                ? 'bg-surface text-text shadow-xs '
+                ? 'bg-surface text-text shadow-xs'
                 : 'text-muted hover:text-text'
             }`}
           >
@@ -133,7 +133,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={onOpenScanFolder}
             title="Scan Folder for Games"
-            className="flex items-center gap-1.5 bg-surface-2/60  hover:bg-surface-2 text-text rounded-control px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+            className="flex items-center gap-1.5 bg-surface-2/60 hover:bg-surface-2 border border-border text-text rounded-control px-2.5 py-1 text-xs font-medium transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
           >
             <FolderSearch className="w-3.5 h-3.5 text-muted" />
             <span>Scan Folder</span>
@@ -144,7 +144,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={onOpenScanRoms}
             title="Scan & Import ROMs"
-            className="flex items-center gap-1.5 bg-surface-2/60  hover:bg-surface-2 text-text rounded-control px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+            className="flex items-center gap-1.5 bg-surface-2/60 hover:bg-surface-2 border border-border text-text rounded-control px-2.5 py-1 text-xs font-medium transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
           >
             <Disc className="w-3.5 h-3.5 text-muted" />
             <span>Scan ROMs</span>
@@ -154,7 +154,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={onOpenAddGame}
           title="Add Game Executable or Shortcut"
-          className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white rounded-control px-3 py-1 text-xs font-medium shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white rounded-control px-3 py-1 text-xs font-medium shadow-sm transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Add Game</span>

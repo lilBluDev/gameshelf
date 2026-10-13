@@ -642,14 +642,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Preferences"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 select-none animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget && !editingProfile && !testingProfile && !isConfirmingClearPlaytime) {
           onClose();
         }
       }}
     >
-      <div className="w-full max-w-4xl max-h-[88vh] h-[640px] bg-surface border border-muted/20 rounded-dialog shadow-2xl flex flex-col overflow-hidden">
+      <div className="w-full max-w-4xl max-h-[88vh] h-[640px] bg-surface border border-muted/20 rounded-dialog shadow-2xl flex flex-col overflow-hidden animate-scale-in">
         <div className="h-12 border-b border-border px-5 flex items-center justify-between bg-surface-2/40 flex-shrink-0">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-text">Preferences</h3>
@@ -1595,8 +1595,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Edit Profile Dialog Modal */}
                 {editingProfile && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-                    <div className="bg-surface border border-muted/20 rounded-dialog shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade-in">
+                    <div className="bg-surface border border-muted/20 rounded-dialog shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto animate-scale-in">
                       <div className="flex items-center justify-between border-b border-border pb-3">
                         <div className="flex items-center gap-2">
                           <Cpu className="w-4 h-4 text-accent" />
@@ -1788,8 +1788,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Test Launch Modal Dialog */}
                 {testingProfile && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-                    <div className="bg-surface border border-muted/20 rounded-dialog shadow-2xl w-full max-w-md p-5 space-y-4">
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade-in">
+                    <div className="bg-surface border border-muted/20 rounded-dialog shadow-2xl w-full max-w-md p-5 space-y-4 animate-scale-in">
                       <div className="flex items-center justify-between border-b border-border pb-3">
                         <div className="flex items-center gap-2">
                           <Play className="w-4 h-4 text-accent" />
@@ -2154,8 +2154,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       </div>
 
       {isConfirmingClearPlaytime && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-          <div className="w-full max-w-sm bg-surface border border-muted/20 rounded-dialog shadow-2xl p-5 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade-in">
+          <div className="w-full max-w-sm bg-surface border border-muted/20 rounded-dialog shadow-2xl p-5 space-y-4 animate-scale-in">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-danger/20 border border-danger/40 flex items-center justify-center text-danger flex-shrink-0">
                 <Trash2 className="w-4 h-4" />

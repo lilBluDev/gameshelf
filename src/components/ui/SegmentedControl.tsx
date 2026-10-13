@@ -60,7 +60,7 @@ export function SegmentedControl<T extends string>({
             tabIndex={isSelected ? 0 : -1}
             onClick={() => onChange(opt.value)}
             onKeyDown={(e) => handleKeyDown(e, idx)}
-            className={`inline-flex items-center justify-center font-medium rounded-[6px] transition-all select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${itemHeight} ${
+            className={`inline-flex items-center justify-center font-medium rounded-[6px] transition-all active:scale-[0.98] select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${itemHeight} ${
               isSelected
                 ? 'bg-surface text-text shadow-xs border border-border/60'
                 : 'text-muted hover:text-text hover:bg-surface/40'

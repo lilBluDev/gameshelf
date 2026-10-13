@@ -117,7 +117,7 @@ export const AddGameModal: React.FC<AddGameModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Add Game to Library"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 select-none animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleReset();
@@ -125,7 +125,7 @@ export const AddGameModal: React.FC<AddGameModalProps> = ({
         }
       }}
     >
-      <div className="w-full max-w-xl max-h-[88vh] bg-surface border border-border rounded-dialog shadow-2xl flex flex-col overflow-hidden">
+      <div className="w-full max-w-xl max-h-[88vh] bg-surface border border-border rounded-dialog shadow-2xl flex flex-col overflow-hidden animate-scale-in">
         <div className="h-12 border-b border-border px-5 flex items-center justify-between bg-surface-2/40 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Plus className="w-4 h-4 text-accent" />

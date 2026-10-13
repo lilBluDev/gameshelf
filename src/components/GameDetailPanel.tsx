@@ -382,7 +382,7 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
   return (
     <aside
       aria-label={`${game.title} details`}
-      className="w-84 bg-surface border-l border-border flex flex-col justify-between h-full flex-shrink-0 overflow-y-auto select-none"
+      className="w-[360px] bg-surface border-l border-border flex flex-col justify-between h-full flex-shrink-0 overflow-y-auto select-none animate-slide-in-right"
     >
       <div>
         {/* Header / Hero banner */}
@@ -906,8 +906,8 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
       {/* Modal 1: Edit Metadata (Overrides) */}
       {isEditingMetadata && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-          <div className="w-full max-w-md bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade-in">
+          <div className="w-full max-w-md bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4 animate-scale-in">
             <div className="flex items-center justify-between border-b border-border pb-2.5">
               <h3 className="text-xs font-bold text-text uppercase tracking-wider">Edit Game Details</h3>
               <button onClick={() => setIsEditingMetadata(false)} className="text-muted hover:text-text p-1">
@@ -1012,8 +1012,8 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
       {/* Modal 2: Edit Launch Settings / Locate File */}
       {isEditingLaunch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-          <div className="w-full max-w-lg bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade-in">
+          <div className="w-full max-w-lg bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4 animate-scale-in">
             <div className="flex items-center justify-between border-b border-border pb-2.5">
               <h3 className="text-xs font-bold text-text uppercase tracking-wider">
                 {game.status === 'Missing' ? 'Locate Game Executable' : 'Launch Configuration'}
@@ -1080,8 +1080,8 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
       {/* Modal 3: Remove from Library Confirmation Dialog */}
       {isConfirmingRemove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-          <div className="w-full max-w-md bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade-in">
+          <div className="w-full max-w-md bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4 animate-scale-in">
             <div className="flex items-center gap-2.5 text-danger border-b border-border pb-2.5">
               <Trash2 className="w-5 h-5 flex-shrink-0" />
               <h3 className="text-sm font-bold text-text">Remove from Library?</h3>
@@ -1119,8 +1119,8 @@ export const GameDetailPanel: React.FC<GameDetailPanelProps> = ({
 
       {/* Modal 4: Reset Playtime Confirmation Dialog */}
       {isConfirmingResetPlaytime && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-          <div className="w-full max-w-sm bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 animate-fade-in">
+          <div className="w-full max-w-sm bg-surface border border-border rounded-dialog shadow-2xl p-5 space-y-4 animate-scale-in">
             <div className="flex items-center gap-2.5 text-warning border-b border-border pb-2.5">
               <RotateCcw className="w-5 h-5 flex-shrink-0" />
               <h3 className="text-sm font-bold text-text">Reset Playtime?</h3>
